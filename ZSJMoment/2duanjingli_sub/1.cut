@@ -1,0 +1,10 @@
+ncut
+1
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
+1                2            1            1.6
+1 1 1 1 0 0 0 0 0 0 0 0 
+0.0,0.0,0.0 0.0,19.2,0.0
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
+1                2            1            1.6
+0 1 0 1 0 0 0 0 0 0 0 0 
+0.0,0.0,0.0 0.0,19.2,0.0

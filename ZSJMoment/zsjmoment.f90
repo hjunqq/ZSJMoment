@@ -153,7 +153,7 @@
             write(*,*)"dimension     ",pgroup%dim
             write(*,*)"elemtype      ",pgroup%elemtype(1:len_trim(pgroup%elemtype))
             write(*,*)"nnode         ",pgroup%nnode
-            
+
             !将读取到的单元组放到链表的结尾
             pgroup%next=>null()
             if(associated(grouplast))then
@@ -240,7 +240,7 @@
     igroup=0
     do while(associated(pgroup))
         igroup=igroup+1
-        group(igroup)=pgroup
+        group(igroup)%dummy => pgroup
         pgroup=>pgroup%next
     enddo
     allocate(coor(ncoor))
@@ -261,7 +261,7 @@
     enddo
     ndim = 0
     do igroup = 1,ngroup
-        ndim = max(ndim,group(igroup)%dim)
+        ndim = max(ndim,group(igroup)%dummy%dim)
     enddo
     end subroutine
 
@@ -383,6 +383,9 @@
 
     real::secvalue
 
+
+    write(*,*)"in cut plane..."
+
     allocate(pelem)
 
     allocate(pelemlib)
@@ -392,6 +395,8 @@
     planenormal=(/0.0,sqrt(1-angular**2),angular/)
 
 
+    nwcoor = ncoor
+    nwelem = nelem
 
 
     do i=1,ncut
@@ -412,60 +417,61 @@
             nullify(coorlast)
             nullify(elemhead)
             nullify(elemlast)
-            
+
             !初始化单元
             !do ielem = 1,nelem
             !    elem(ielem)%ifcross=0
             !enddo
-            
+
             do igroup = 1,ngroup
-                do ielem=1,group(igroup)%nelem
-                    pelem => group(igroup)%elem(ielem)
+                do ielem=1,group(igroup)%dummy%nelem
+                    pelem => group(igroup)%dummy%elem(ielem)
                     pelem%ifcross=0
                 enddo
             enddo
-            
+
 
             ! find intersection element
 
             secvalue=cut(i)%spoint(dir)+cut(i)%interval*isec
 
-            centcoord=(/0.0,secvalue,0.0/)
+            centcoord=(/0.0,0.0,0.0/)
+            centcoord(dir) = secvalue
             nfaceelem = 0
 
-            
+
 
 
             allocate(pcoor)
             do igroup = 1, ngroup
                 if(cut(i)%appeargroup(igroup)==0)cycle
-                do ielem = 1, group(igroup)%nelem
-                    pelem => group(igroup)%elem(ielem)
+                do ielem = 1, group(igroup)%dummy%nelem
+                    pelem => group(igroup)%dummy%elem(ielem)
 
                     if(.not.allocated(pelem%cross))then
-                        allocate(pelem%cross(group(igroup)%nnode))
+                        allocate(pelem%cross(group(igroup)%dummy%nnode))
                     endif
 
                     pelem%cross=0
 
                     distance = 0
 
-                    do inode = 1,group(igroup)%nnode
+                    do inode = 1,group(igroup)%dummy%nnode
                         nodeidx = pelem%node(inode)
                         pcoor = coor(nodeidx)
                         pelem%cross(inode) = pointtoplane(pcoor%val,planenormal,centcoord)
                         distance = distance + pelem%cross(inode)
                     enddo
-                    if(abs(distance)/=group(igroup)%nnode)then
+                    if(abs(distance)/=group(igroup)%dummy%nnode)then
                         pelem%ifcross=1
-                        write(chkunit,*)pelem%index
+                        !write(chkunit,*)pelem%index
                         nfaceelem = nfaceelem + 1
                     endif
                 enddo
             enddo
 
-            print*,nfaceelem
-            write(chkunit,*)nfaceelem,"-------------------------"
+            !print*,nfaceelem
+            !!write(chkunit,*)nfaceelem,"-------------------------"
 
             if(secvalue>cut(i)%epoint(dir))then
                 exit
@@ -483,13 +489,13 @@
             tnode = 0
             do igroup = 1, ngroup
                 if(cut(i)%appeargroup(igroup)==0)cycle
-                do ielem = 1, group(igroup)%nelem
-                    pelem => group(igroup)%elem(ielem)
+                do ielem = 1, group(igroup)%dummy%nelem
+                    pelem => group(igroup)%dummy%elem(ielem)
                     if(pelem%ifcross == 1)then
                         jelem = jelem +1
                         jnode = 0
 
-                        pelemlib => elemlibs(1)
+                        pelemlib = elemlibs(1)
 
                         do iline = 1, pelemlib%nline
 
@@ -506,7 +512,7 @@
                                 jnode = jnode +1
                                 allocate(pcoor)
                                 pcoor%val=ispoint
-                                pcoor%index = jnode
+                                pcoor%index = jnode + tnode
                                 pcoor%relate=(/coori%index,coorj%index/)
                                 pcoor%next=>null()
 
@@ -528,6 +534,7 @@
                         allocate(piselem)
                         allocate(piselem%node(jnode))
                         piselem%index = jelem
+                        piselem%dir = dir
                         piselem%node = (/(k,k=(tnode-jnode+1),tnode)/)
 
                         piselem%next=>null()
@@ -544,23 +551,42 @@
                 enddo
             enddo
 
+            ! 删除重复点
+            call deldupnode(coorhead,elemhead)
+
+
+            pcoor=>coorhead
+            tnode = 0
+            do while(associated(pcoor))
+                tnode = tnode +1
+                pcoor=>pcoor%next
+            enddo
+
+            allocate(pface%coor(tnode))
+            pface%nnode = tnode
+
+
+            pcoor=>coorhead
+            tnode = 0
+            do while(associated(pcoor))
+                tnode = tnode +1
+                pface%coor(tnode)%dummy => pcoor
+                pcoor=>pcoor%next
+            enddo
+
+
             pface%nelem = jelem
             allocate(pface%elem(jelem))
             piselem => elemhead
             ielem = 0
             do while(associated(piselem))
                 ielem = ielem +1
-                pface%elem(ielem) = piselem
+                pface%elem(ielem)%dummy => piselem
                 piselem => piselem%next
             enddo
-            allocate(pface%coor(tnode))
-            pcoor => coorhead
-            inode = 0
-            do while(associated(pcoor))
-                inode = inode +1
-                pface%coor(inode) = pcoor
-                pcoor => pcoor%next
-            enddo
+
+            call resortvertix(pface%coor,pface%elem)
+
 
             if(associated(facelast))then
                 facelast%next => pface
@@ -570,7 +596,7 @@
                 facelast=>pface
             endif
 
-            print *,iface, secvalue,ielem,inode
+            !print *,iface, secvalue,ielem,inode
 
         enddo
 
@@ -583,7 +609,8 @@
             pface => pface%next
         enddo
 
-        print*,iface
+        cut(i)%nface = iface
+
 
     enddo
 
@@ -591,21 +618,206 @@
 
     end subroutine cutplane
 
+    subroutine deldupnode(coorhead,elemhead)
+    implicit none
+    type(coorinfo),pointer::picoor,pjcoor,coorhead,pkcoor
+
+    type(eleminfo),pointer::elemhead,pielem
+    integer::tnode,inode,nnode,telem
+    integer::iindex,jindex
+    integer,allocatable::nodemap(:),reorder(:)
+    real(8)::dist
+
+    tnode = 0
+    picoor=>coorhead
+    do while(associated(picoor))
+        tnode = tnode +1
+        picoor=>picoor%next
+    enddo
+
+    allocate(nodemap(tnode))
+    allocate(reorder(tnode))
+    nodemap = 0
+    picoor=>coorhead
+    do while(associated(picoor))
+        iindex = picoor%index
+        nodemap(iindex)=iindex
+        picoor=>picoor%next
+    enddo
+
+    picoor=>coorhead
+    do while (associated(picoor))
+        iindex = picoor%index
+        if(nodemap(iindex)/=iindex)then
+            picoor=>picoor%next
+            cycle
+        endif
+        pjcoor=>picoor%next
+        do while(associated(pjcoor))
+
+            jindex = pjcoor%index
+
+            if(nodemap(jindex)/=jindex)then
+                pjcoor=>pjcoor%next
+                cycle
+            endif
+
+            dist = NORM2(picoor%val-pjcoor%val)
+            if(dist<small)then
+
+                pjcoor%dupnode = picoor%index
+
+                nodemap(jindex) = iindex
+
+            endif
+            pjcoor=>pjcoor%next
+        enddo
+        picoor=>picoor%next
+    enddo
+
+    nnode = 0
+    do inode = 1, tnode
+        if(nodemap(inode)==inode)then
+            nnode = nnode +1
+            reorder(inode) = nnode
+        endif
+    enddo
+
+
+    pielem=>elemhead
+    do while(associated(pielem))
+        !write(chkunit,"(10I10)")pielem%index,pielem%node
+        pielem%node = reorder(nodemap(pielem%node))
+        !write(chkunit,"(10I10)")pielem%index,pielem%node
+        pielem=>pielem%next
+    enddo
+
+
+    picoor=>coorhead
+
+    do while(associated(picoor))
+
+        pjcoor=>picoor%next
+        if(.not.associated(pjcoor))then
+            picoor=>picoor%next
+            cycle
+        endif
+        if(pjcoor%dupnode/=0)then
+
+            picoor%next=>pjcoor%next
+
+            deallocate(pjcoor)
+
+            cycle
+
+        endif
+
+        picoor=>picoor%next
+    enddo
+
+    picoor => coorhead
+
+    nodemap = 0
+    tnode = 0
+    do while(associated(picoor))
+        tnode = tnode + 1
+        nodemap(tnode) = tnode + nwcoor
+        !write(chkunit,"(10I10)"),picoor%index , tnode + nwcoor
+        picoor%index = tnode + nwcoor
+        picoor=>picoor%next
+    enddo
+    nwcoor = nwcoor + tnode
+
+    pielem=>elemhead
+    telem = 0
+    do while(associated(pielem))
+        telem = telem +1
+        write(chkunit,"(10I10)")pielem%index,pielem%node
+        pielem%node = nodemap(pielem%node)
+        write(chkunit,"(10I10)")pielem%index,pielem%node
+        pielem%index = telem + nwelem
+        pielem=>pielem%next
+    enddo
+
+    nwelem = nwelem + telem
+
+    end subroutine deldupnode
+
+    subroutine resortvertix(fcoor,felem)
+    implicit none
+    type(coorinfopointer),allocatable::fcoor(:)
+    type(eleminfopointer),allocatable::felem(:)
+
+
+
+    integer::ielem,ncelem,nccoor,ncnode
+    integer::inode,jnode,mnode,inodeidx,jnodeidx
+    integer::xdir,ydir
+
+    integer::ordered(4),nodetag(4)
+    real(8)::p1(3),p2(3),v(3),theta(4)
+
+    ncelem = ubound(felem,1)
+    nccoor = ubound(fcoor,1)
+
+    do ielem = 1,ncelem
+        pelem => felem(ielem)%dummy
+        ncnode = ubound(pelem%node,1)
+        if(pelem%dir==2)then
+            xdir=1
+            ydir=3
+        endif
+        ordered = 0
+        nodetag = 0
+        ordered(1) = pelem%node(1)
+        nodetag(1) = 1
+
+        do inode = 1,ncnode-1
+            inodeidx = ordered(inode)-nwcoor+nccoor
+            p1 = fcoor(inodeidx)%dummy%val
+            theta = 0.
+            do jnode = 1,ncnode
+                if(nodetag(jnode)==1)cycle
+                jnodeidx = pelem%node(jnode)-nwcoor+nccoor
+                p2 = fcoor(jnodeidx)%dummy%val
+                v = p2-p1
+                theta(jnode) = atan2(v(ydir),v(xdir))
+            enddo
+            if(all(abs(theta)<pi/2))then
+                theta=theta+2*pi
+            else
+                where(theta<0)theta=theta+2*pi
+            endif
+            mnode = minloc(theta,1,mask=nodetag==0)
+            ordered(inode+1) = pelem%node(mnode)
+            nodetag(mnode) = 1
+        enddo
+
+        pelem%node = ordered
+
+    enddo
+
+
+
+    endsubroutine resortvertix
+
     !>读取并输出结果信息
     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     subroutine resprocess
     use gidpost
 
     character(300)   ::orgline,text
-    integer          ::idxi,idxj,ires,icomp,icoor,istep,idx,ielem,igroup,eidx
+    integer          ::idxi,idxj,ires,icomp,icoor,istep,idx,ielem,igroup,eidx,icut,iface,tcoor,telem
     real            ::curtime
     real,allocatable::time(:)
 
+    integer         ::intval(1)
     type(gid_file) :: fdm, fdr
     real(8):: sxx,syy,szz,sxy,syz,sxz, x,y,z
     type(gid_elementtype):: etype
     type(resinfo)::res
     real:: stress_mat(3,3)
+
 
 
     !写网格文件
@@ -622,8 +834,8 @@
     end select
 
     do igroup = 1, ngroup
-        pgroup=>group(igroup)
-        select case(trim(pgroup.elemtype))
+        pgroup=>group(igroup)%dummy
+        select case(lowcase(trim(pgroup.elemtype)))
         case ('point')
             etype = gid_point
         case ('linear')
@@ -663,11 +875,40 @@
 
         do ielem = 1,pgroup.nelem
             call gid_fwriteelement(fdm,pgroup.elem(ielem).index,pgroup.elem(ielem).node)
-
         enddo
         call gid_fendelements(fdm)
 
         call gid_fendmesh(fdm)
+
+    enddo
+
+    tcoor = ncoor
+    telem = nelem
+    do icut = 1, ncut
+
+        do iface = 1,cut(icut)%nface
+            etype = gid_quadrilateral
+            call gid_fbeginmesh(fdm,"internal_cut",gid_3d,etype,4)
+
+            call gid_fbegincoordinates(fdm)
+            do icoor =1, cut(icut)%face(iface)%nnode
+                tcoor = tcoor + 1
+                pcoor => cut(icut)%face(iface)%coor(icoor)%dummy
+                call gid_fwritecoordinates(fdm,tcoor,pcoor%val(1),pcoor%val(2),pcoor%val(3))
+            enddo
+            call gid_fendcoordinates(fdm)
+
+            call gid_fbeginelements(fdm)
+            do ielem = 1,cut(icut)%face(iface)%nelem
+                telem = telem +1
+                pelem = cut(icut)%face(iface)%elem(ielem)%dummy
+                call gid_fwriteelement(fdm,pelem.index,pelem.node)
+            enddo
+            call gid_fendelements(fdm)
+        enddo
+        call gid_fendelements(fdm)
+        call gid_fendmesh(fdm)
+
 
     enddo
 

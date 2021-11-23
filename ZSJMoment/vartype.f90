@@ -9,18 +9,25 @@
 		real(8),allocatable::val(:)
 		real,allocatable::trans(:,:)
 		integer         ::relate(2)
+		integer			::dupnode
 		type(coorinfo),pointer::next
 	end type
+	type coorinfopointer
+		type(coorinfo),pointer::dummy
+	endtype coorinfopointer
 	!> 单元链表节点
 	!!@param index 单元索引值
 	!!@param group 单元所在组
 	!!@param node 单元节点
 	!!@param next 指向下一个单元节点
 	type eleminfo
-		integer         ::index, group, ifcross
+		integer         ::index, group, ifcross,dir
 		integer,allocatable::node(:), cross(:)
 		type(eleminfo),pointer::next
 	end type
+	type eleminfopointer
+		type(eleminfo),pointer::dummy
+	endtype eleminfopointer
 	
 	type lineinfo
 		integer			::index
@@ -50,6 +57,9 @@
 		type(eleminfo),dimension(:),pointer::elem
 		type(coorinfo),dimension(:),pointer::coor
 	end type
+	type groupinfopointer
+		type(groupinfo),pointer::dummy
+	endtype groupinfopointer
 	!>结果值链表节点
 	!!@param index 结果值索引
 	!!@param dat 结果值
@@ -63,15 +73,15 @@
 	
 	type faceinfo
 		integer::index,nnode,nelem
-		type(coorinfo),allocatable::coor(:)
-		type(eleminfo),allocatable::elem(:)
+		type(coorinfopointer),allocatable::coor(:)
+		type(eleminfopointer),allocatable::elem(:)
 		type(faceinfo),pointer::next
 	end type faceinfo
 
 	!>切面信息
 	!!@param cuttype 切面类型： 1 - 按照间隔切面 2 - 按照单元切面 3- 按照间隔查找最接近的单元面
 	type cutinfo
-		integer::index,dir,ngroup
+		integer::index,dir,ngroup,nface
 		integer::cuttype
 		real(8)::interval
 		real(8)::spoint(3),epoint(3)
@@ -111,7 +121,7 @@
 	endtype
 
 	integer::mshunit,resunit,inpunit,cutunit,chkunit
-	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut
+	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem
 	logical::ismeshgroup,isoldformat
 	character(len=128)::arg
 	integer::narg,iarg
@@ -124,22 +134,22 @@
 
 
 	type(groupinfo),pointer::grouphead,pgroup,grouplast
-	type(groupinfo),dimension(:),pointer::group
+	type(groupinfopointer),allocatable::group(:)
 	type(coorinfo),pointer::coorhead,pcoor,coorlast
-	type(coorinfo),dimension(:),pointer::coor
+	type(coorinfo),allocatable::coor(:)
 	type(eleminfo),pointer::elemhead,pelem,elemlast
-	type(eleminfo),dimension(:),pointer::elem
+	type(eleminfo),allocatable::elem(:)
 	type(resinfo),pointer::reshead,pres,reslast
-	type(resinfo),dimension(:),pointer::res
-	type(resinfo),dimension(:),pointer::restrans
+	type(resinfo),allocatable::res(:)
+	type(resinfo),allocatable::restrans(:)
 	type(cutinfo),pointer::cuthead,pcut,cutlast
-	type(cutinfo),dimension(:),pointer::cut
+	type(cutinfo),allocatable::cut(:)
 	type(faceinfo),pointer::facehead,pface,facelast
-	type(faceinfo),dimension(:),pointer::face
+	type(faceinfo),allocatable::face(:)
 	
 	type(eleminfo),pointer::piselem
 	
-	type(elemtype),dimension(:),pointer::elemlibs
+	type(elemtype),allocatable::elemlibs(:)
 	type(lineinfo),pointer::pline
 	type(elemtype),pointer::pelemlib
 	

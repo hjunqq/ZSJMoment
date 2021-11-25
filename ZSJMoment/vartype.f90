@@ -23,6 +23,7 @@
 	type eleminfo
 		integer         ::index, group, ifcross,dir
 		integer,allocatable::node(:), cross(:)
+		real(8),allocatable::djacb(:),cartd(:,:,:),gpcod(:,:)
 		type(eleminfo),pointer::next
 	end type
 	type eleminfopointer
@@ -36,7 +37,8 @@
 	
 	type elemtype
 		integer			::index
-		integer         ::nline,nface
+		integer         ::nline,nface,ngaus
+		real(8),allocatable			::posgp(:,:),weigp(:),shapefun(:,:),deriv(:,:,:)
 		type(lineinfo),allocatable::line(:)
 	endtype
 	
@@ -71,8 +73,10 @@
 	end type
 	
 	
+	! nqm 1-÷·¡¶£¨2£¨3-ºÙ¡¶£¨4£¨5£¨6 Õ‰æÿ
 	type faceinfo
-		integer::index,nnode,nelem
+		integer::index,nnode,nelem,dir,cpidx
+		real(8)::cpoint(3),nqm(6) 
 		type(coorinfopointer),allocatable::coor(:)
 		type(eleminfopointer),allocatable::elem(:)
 		type(faceinfo),pointer::next

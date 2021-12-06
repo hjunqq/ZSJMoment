@@ -21,9 +21,10 @@
 	!!@param node 单元节点
 	!!@param next 指向下一个单元节点
 	type eleminfo
-		integer         ::index, group, ifcross,dir
+		integer         ::index, group, ifcross,dir, enodes
 		integer,allocatable::node(:), cross(:)
 		real(8),allocatable::djacb(:),cartd(:,:,:),gpcod(:,:)
+        real(8)::normal(3),rot(3,3)
 		type(eleminfo),pointer::next
 	end type
 	type eleminfopointer
@@ -37,7 +38,7 @@
 	
 	type elemtype
 		integer			::index
-		integer         ::nline,nface,ngaus
+		integer         ::nline,nface,ngaus,ndim
 		real(8),allocatable			::posgp(:,:),weigp(:),shapefun(:,:),deriv(:,:,:)
 		type(lineinfo),allocatable::line(:)
 	endtype
@@ -76,7 +77,7 @@
 	! nqm 1-轴力，2，3-剪力，4，5，6 弯矩
 	type faceinfo
 		integer::index,nnode,nelem,dir,cpidx
-		real(8)::cpoint(3),nqm(6) 
+		real(8)::cpoint(3),nqm(6),normal(3),theta
 		type(coorinfopointer),allocatable::coor(:)
 		type(eleminfopointer),allocatable::elem(:)
 		type(faceinfo),pointer::next

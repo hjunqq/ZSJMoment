@@ -313,6 +313,7 @@
     allocate(elemlibs(ntype))
     elemlibs(1)%index = 9
     elemlibs(1)%nline = 12
+    elemlibs(1)%ndim = 2
     allocate(elemlibs(1)%line(12))
 
     elemlibs(1)%line(1)%index = 1
@@ -363,14 +364,14 @@
     elemlibs(1)%line(12)%node(1) = 5
     elemlibs(1)%line(12)%node(2) = 8
 
-    
+
     ! Gause Point
-    
+
     allocate(elemlibs(1)%posgp(2,4))
     allocate(elemlibs(1)%weigp(4))
-    
+
     elemlibs(1)%ngaus = 4
-    
+
     cnst3 = 1./3.**0.5
     elemlibs(1)%posgp(1,1)= -cnst3
     elemlibs(1)%posgp(2,1)= -cnst3
@@ -380,23 +381,23 @@
     elemlibs(1)%posgp(2,3)=  cnst3
     elemlibs(1)%posgp(1,4)= -cnst3
     elemlibs(1)%posgp(2,4)=  cnst3
-    
+
     elemlibs(1)%weigp(1)=1.00
     elemlibs(1)%weigp(2)=1.00
     elemlibs(1)%weigp(3)=1.00
     elemlibs(1)%weigp(4)=1.00
-    
+
     ! Shape Fun
     allocate(elemlibs(1)%shapefun(4,4))
     allocate(elemlibs(1)%deriv(4,4,4))
-    
+
     do idim = 1, 2
         do igaus = 1, 4
-        
-            
+
+
             s = elemlibs(1)%posgp(1,igaus)
             t = elemlibs(1)%posgp(2,igaus)
-            
+
             st = s*t
             elemlibs(1)%shapefun(1,igaus) = (1-t-s+st)*0.25
             elemlibs(1)%shapefun(2,igaus) = (1-t+s-st)*0.25
@@ -412,8 +413,8 @@
             elemlibs(1)%deriv(2,4,igaus) = (+1-s)*0.25
         enddo
     enddo
-    
-    
+
+
     endsubroutine defelemedge
 
     !>切面
@@ -428,13 +429,13 @@
 
     integer,allocatable::elemcross(:)
 
-    real(8)::planenormal(3),centcoord(3),ispoint(3)
+    real(8)::planenormal(3), centcoord(3), ispoint(3), axisvec(3), secvec(3), elemcenter(3),evec(3)
 
-    integer::is
+    integer::is,xdir,ydir
 
     integer::distance
 
-    real::secvalue
+    real::secvalue,theta, etheta
 
 
     write(*,*)"in cut plane..."
@@ -444,8 +445,7 @@
     allocate(pelemlib)
 
 
-
-    planenormal=(/0.0,sqrt(1-angular**2),angular/)
+    axisvec = (/0.0,sqrt(1-angular**2),angular/)
 
 
     nwcoor = ncoor
@@ -455,13 +455,19 @@
     do i=1,ncut
 
 
-        nullify(facehead)
-        nullify(facelast)
+
 
 
         isec = 0
         iface = 0
         dir = cut(i)%dir
+
+
+        nullify(facehead)
+        nullify(facelast)
+
+
+
 
         do
             isec = isec +1
@@ -485,14 +491,34 @@
 
 
             ! find intersection element
+            !如果cuttype==1，沿y轴切面，那么planenormal为面法向，centcoord为面中心点
+            !面中心点的算法应该是在起始点和终止点中间插值
+            !如果cuttype==2，沿环向切面，那么planenormal为轴向与环向的叉乘，centcoor为面中心点
+            !此时interval为弧度，表示切割的角度
+            if(cut(i)%cuttype==1)then
+                
+                centcoord = cut(i)%interval*isec / norm2(cut(i)%spoint - cut(i)%epoint) * (cut(i)%epoint - cut(i)%spoint) + cut(i)%spoint(dir)
+                secvalue = centcoord(dir)
+                planenormal = axisvec
+                
+            elseif(cut(i)%cuttype==2)then
+                centcoord = cut(i)%spoint
+                secvalue = centcoord(dir)
+                
+                theta = cut(i)%interval*(isec-1)
+                if(dir==2)then
+                    xdir=1
+                    ydir=3
+                endif
+                secvec(xdir) = cos(theta)
+                secvec(ydir) = sin(theta)
+                planenormal = axisvec .x. secvec
+            endif
 
-            secvalue=cut(i)%spoint(dir)+cut(i)%interval*isec
+            
+            
 
-            centcoord=(/0.0,0.0,0.0/)
-            centcoord(dir) = secvalue
             nfaceelem = 0
-
-
 
 
             allocate(pcoor)
@@ -508,14 +534,31 @@
                     pelem%cross=0
 
                     distance = 0
+                    elemcenter = 0.
 
                     do inode = 1,group(igroup)%dummy%nnode
                         nodeidx = pelem%node(inode)
                         pcoor = coor(nodeidx)
+                        elemcenter = elemcenter + pcoor%val
                         pelem%cross(inode) = pointtoplane(pcoor%val,planenormal,centcoord)
                         distance = distance + pelem%cross(inode)
                     enddo
+
+
+
                     if(abs(distance)/=group(igroup)%dummy%nnode)then
+
+                        if(cut(i)%cuttype==2)then
+                            elemcenter = elemcenter / group(igroup)%dummy%nnode
+                            evec = elemcenter-centcoord
+
+                            etheta = atan2(evec(ydir),evec(xdir))
+                            
+                            if(etheta<0)etheta = etheta + 2*pi
+
+                            if(abs(etheta-theta)>pi/6)cycle
+                        endif
+
                         pelem%ifcross=1
                         !write(chkunit,*)pelem%index
                         nfaceelem = nfaceelem + 1
@@ -525,9 +568,14 @@
 
             !print*,nfaceelem
             !!write(chkunit,*)nfaceelem,"-------------------------"
-
-            if(secvalue>cut(i)%epoint(dir))then
-                exit
+            if(cut(i)%cuttype==1)then
+                if(secvalue>cut(i)%epoint(dir))then
+                    exit
+                endif
+            else
+                if(theta>2*PI)then
+                    exit
+                endif
             endif
 
             if(nfaceelem==0)cycle
@@ -537,6 +585,7 @@
             pface%index = iface
             pface%dir = dir
             pface%cpoint(dir) = secvalue
+            pface%theta = theta
 
             ! generate intersection node
 
@@ -562,8 +611,11 @@
 
 
                             is = intersection(coorj%val-coori%val,coori%val,planenormal,centcoord,ispoint)
-                            if(is==1)then
-                                !print '(2I5,3(F7.3,","),x,3(F7.3,","),x,3(F7.3,","))',coori.index,coorj.index,coori.val,coorj.val,ispoint
+                            select case(is)
+                            case(0)
+                                !不相交，没关系
+                            case(1)
+                                !相交
                                 jnode = jnode +1
                                 allocate(pcoor)
                                 pcoor%val=ispoint
@@ -579,8 +631,56 @@
                                     coorhead=>pcoor
                                     coorlast=>pcoor
                                 endif
+                            case(2)
+                                !在面上,两个点都需要添加到列表中
+                                jnode = jnode + 1
+                                allocate(pcoor)
+                                pcoor%val = coori%val
+                                pcoor%index = jnode + tnode
+                                pcoor%relate = (/coori%index,coorj%index/)
+                                pcoor%next =>null()
+                                if(associated(coorlast))then
+                                    coorlast%next => pcoor
+                                    coorlast=>pcoor
+                                else
+                                    coorhead => pcoor
+                                    coorlast =>pcoor
+                                endif
 
-                            endif
+                                jnode = jnode + 1
+                                allocate(pcoor)
+                                pcoor%val = coorj%val
+                                pcoor%index = jnode + tnode
+                                pcoor%relate = (/coori%index,coorj%index/)
+                                pcoor%next =>null()
+                                if(associated(coorlast))then
+                                    coorlast%next => pcoor
+                                    coorlast=>pcoor
+                                else
+                                    coorhead => pcoor
+                                    coorlast =>pcoor
+                                endif
+
+                            end select
+                            !if(is==1)then
+                            !    !print '(2I5,3(F7.3,","),x,3(F7.3,","),x,3(F7.3,","))',coori.index,coorj.index,coori.val,coorj.val,ispoint
+                            !    jnode = jnode +1
+                            !    allocate(pcoor)
+                            !    pcoor%val=ispoint
+                            !    pcoor%index = jnode + tnode
+                            !    pcoor%relate=(/coori%index,coorj%index/)
+                            !    pcoor%next=>null()
+                            !
+                            !
+                            !    if(associated(coorlast))then
+                            !        coorlast%next=>pcoor
+                            !        coorlast=>pcoor
+                            !    else
+                            !        coorhead=>pcoor
+                            !        coorlast=>pcoor
+                            !    endif
+                            !
+                            !endif
 
 
                         enddo
@@ -629,9 +729,15 @@
                 pcoor=>pcoor%next
             enddo
 
+            piselem => elemhead
+            ielem = 0
+            do while(associated(piselem))
+                ielem = ielem + 1
+                piselem => piselem%next
+            enddo
 
-            pface%nelem = jelem
-            allocate(pface%elem(jelem))
+            pface%nelem = ielem
+            allocate(pface%elem(ielem))
             piselem => elemhead
             ielem = 0
             do while(associated(piselem))
@@ -640,8 +746,8 @@
                 piselem => piselem%next
             enddo
 
-            call resortvertix(pface%coor,pface%elem)
-            
+            call resortvertix(pface)
+
             call getcentroid(pface)
 
 
@@ -652,10 +758,10 @@
                 facehead=>pface
                 facelast=>pface
             endif
-            
-            
 
-            !print *,iface, secvalue,ielem,inode
+
+
+            print *,iface, secvalue,ielem,inode
 
         enddo
 
@@ -677,14 +783,15 @@
 
     end subroutine cutplane
 
+
     subroutine deldupnode(coorhead,elemhead)
     implicit none
     type(coorinfo),pointer::picoor,pjcoor,coorhead,pkcoor
 
-    type(eleminfo),pointer::elemhead,pielem
+    type(eleminfo),pointer::elemhead,pielem,pjelem
     integer::tnode,inode,nnode,telem
     integer::iindex,jindex
-    integer,allocatable::nodemap(:),reorder(:)
+    integer,allocatable::nodemap(:),reorder(:),inodemap(:),jnodemap(:)
     real(8)::dist
 
     tnode = 0
@@ -742,12 +849,40 @@
         endif
     enddo
 
-
+    !单元重排，并删除重复单元
     pielem=>elemhead
     do while(associated(pielem))
         !write(chkunit,"(10I10)")pielem%index,pielem%node
         pielem%node = reorder(nodemap(pielem%node))
         !write(chkunit,"(10I10)")pielem%index,pielem%node
+        pielem=>pielem%next
+    enddo
+
+    !删除重复单元
+    pielem => elemhead
+    telem = 0
+    allocate(inodemap(tnode))
+    allocate(jnodemap(tnode))
+    do while(associated(pielem))
+        inodemap = 0
+        inodemap(pielem%node) = 1
+
+        pjelem => pielem%next
+        do while(associated(pjelem))
+            jnodemap = 0
+            jnodemap(pjelem%node) = 1
+
+            if(sum(abs(inodemap-jnodemap))==0)then
+                pielem%next=>pjelem%next
+                deallocate(pjelem)
+                pjelem=>pielem%next
+                cycle
+            endif
+
+            pjelem=>pjelem%next
+        enddo
+
+
         pielem=>pielem%next
     enddo
 
@@ -786,62 +921,112 @@
         picoor=>picoor%next
     enddo
     nwcoor = nwcoor + tnode
-    write(*,"(10I10)") nwcoor
+    write(*,100) nwcoor
+
+
+
 
     pielem=>elemhead
     telem = 0
     do while(associated(pielem))
         telem = telem +1
-        write(chkunit,"(10I10)")pielem%index,pielem%node
+        !write(chkunit,100)pielem%index,pielem%node
         pielem%node = nodemap(pielem%node)
-        write(chkunit,"(10I10)")pielem%index,pielem%node
+        !write(chkunit,100)pielem%index,pielem%node
         pielem%index = telem + nwelem
         pielem=>pielem%next
     enddo
 
+
+
     nwelem = nwelem + telem
+
+100 format(20I10)
 
     end subroutine deldupnode
 
-    subroutine resortvertix(fcoor,felem)
+    subroutine resortvertix(pface)
     implicit none
-    type(coorinfopointer),allocatable::fcoor(:)
-    type(eleminfopointer),allocatable::felem(:)
+    type(faceinfo),pointer::pface
+    
+    type(coorinfopointer),pointer::fcoor(:)
+    type(eleminfopointer),pointer::felem(:)
 
 
 
-    integer::ielem,ncelem,nccoor,ncnode
-    integer::inode,jnode,mnode,inodeidx,jnodeidx,idim,igaus
+    integer::ielem,ncelem,nccoor,nenode
+    integer::inode,jnode,knode,mnode,inodeidx,jnodeidx,idim,igaus
     integer::xdir,ydir
 
-    integer::ordered(4),nodetag(4)
-    real(8)::p1(3),p2(3),v(3),theta(4),elcod(2,4)
+    integer::ordered(20),nodetag(20),enodemap(20),is
+    real(8)::p1(3),p2(3),p3(3),v(3),theta(20),elcod(3,4),normal(3),rot(3,3),center(3),projp1(3),p(3,4),direct(3)
 
+    fcoor=>pface%coor
+    felem=>pface%elem
+    
     ncelem = ubound(felem,1)
     nccoor = ubound(fcoor,1)
 
     do ielem = 1,ncelem
         pelem => felem(ielem)%dummy
-        ncnode = ubound(pelem%node,1)
+        nenode = ubound(pelem%node,1)
+        enodemap = 0
+        enodemap(1:nenode) = pelem%node
+
+        ! 删除重复节点
+        nodetag = -1
+        do inode = 1,nenode
+            nodetag(inode) = 0
+        enddo
+        do inode = 1, nenode -1
+            do jnode = inode+1, nenode
+                if(pelem%node(inode)==pelem%node(jnode))then
+                    nodetag(jnode)=1
+                endif
+            enddo
+        enddo
+
+        knode = count(nodetag==0)
+        pelem%enodes = knode
+
+        !找三个点，计算面法向
+        knode = 0
+        do inode =1, nenode
+            if(nodetag(inode)==0)then
+                knode = knode +1
+                p(:,knode) = fcoor(pelem%node(inode)-nwcoor+nccoor)%dummy%val
+            endif
+        enddo
+        !write(chkunit,"(4(3F10.7,/))")p
+        normal = normal_plane(p(:,1),p(:,2),p(:,3))
+        center = sum(p,2)/knode
+        direct = center
+
+        rot = rot_by_direct(direct,normal,pelem%dir)
+
         if(pelem%dir==2)then
             xdir=1
             ydir=3
         endif
+
+
         ordered = 0
-        nodetag = 0
+
         ordered(1) = pelem%node(1)
         nodetag(1) = 1
 
-        do inode = 1,ncnode-1
+        do inode = 1,nenode-1
             inodeidx = ordered(inode)-nwcoor+nccoor
             p1 = fcoor(inodeidx)%dummy%val
             theta = 0.
-            do jnode = 1,ncnode
+            do jnode = 1,nenode
                 if(nodetag(jnode)==1)cycle
                 jnodeidx = pelem%node(jnode)-nwcoor+nccoor
                 p2 = fcoor(jnodeidx)%dummy%val
                 v = p2-p1
-                theta(jnode) = atan2(v(ydir),v(xdir))
+                v = matmul(rot,v)
+                !is = intersection(normal,v,normal,center,v)
+                theta(jnode) = atan2(v(2),v(1))
             enddo
             if(all(abs(theta)<pi/2))then
                 theta=theta+2*pi
@@ -857,84 +1042,159 @@
 
         pelem%node = ordered
 
-        
+
         ! Calculate Jacobi
+
+        !首先计算单元法向
+        !p1 = fcoor(ordered(1)-nwcoor+nccoor)%dummy%val
+        !p2 = fcoor(ordered(2)-nwcoor+nccoor)%dummy%val
+        !p3 = fcoor(ordered(3)-nwcoor+nccoor)%dummy%val
+        !normal = normal_plane(p1,p2,p3)
+        do inode =1, nenode
+            p(:,knode) = fcoor(pelem%node(inode)-nwcoor+nccoor)%dummy%val
+        enddo
+        normal = normal_plane(p(:,1),p(:,2),p(:,3))
         
-        do inode =1, ncnode
+        
+        pelem%normal = normal
+        pelem%rot = rot_by_direct(direct,normal,pelem%dir)
+        
+        !write(chkunit,*)"debug-----------------"
+        !write(chkunit,"(3F10.7)")normal
+        !write(chkunit,"(3(3F10.7,/))")rot
+        !write(chkunit,*)"--------origin---------"
+        do inode = 1,pelem%enodes
             inodeidx = ordered(inode)-nwcoor+nccoor
             p1 = fcoor(inodeidx)%dummy%val
-            elcod(1,inode) = p1(xdir)
-            elcod(2,inode) = p1(ydir)
+            !write(chkunit,100)inode,p1
         enddo
+        !write(chkunit,*)"--------trans---------"
+        !计算局部坐标
+        do inode = 1,pelem%enodes
+            inodeidx = ordered(inode)-nwcoor+nccoor
+            p1 = fcoor(inodeidx)%dummy%val
+            !projp1 = matmul(rot,p1)
+            !write(chkunit,100)inode,projp1
+            elcod(:,inode) = p1
+        enddo
+        write(chkunit,*)"rot:",ielem
+        write(chkunit,"(3(3F10.7,/))")rot
+        write(chkunit,*)"befor:",ielem
+        write(chkunit,102)elcod
+        elcod = matmul(rot,elcod)
+        write(chkunit,*)"after:",ielem
+        write(chkunit,102)elcod
+        normal = normal_plane(elcod(:,1),elcod(:,2),elcod(:,3))
+        if(abs(normal(1)-1)<small)then
+            elcod(1,:) = elcod(2,:)
+            elcod(2,:) = elcod(3,:)
+        elseif(abs(normal(2)-1)<small)then
+            elcod(2,:) = elcod(3,:)
+        endif
+        !write(chkunit,*)"--------proje---------"
         
+        !center = p1
+        !计算投影点坐标
+        !do inode = 1,pelem%enodes
+        !    inodeidx = ordered(inode)-nwcoor+nccoor
+        !    p1 = fcoor(inodeidx)%dummy%val
+        !    is = intersection(normal,p1,normal,center,projp1)
+        !    write(chkunit,100)inode,projp1
+        !    elcod(:,inode) = projp1
+        !enddo
+
+        !do inode =1, pelem%enodes
+        !    inodeidx = ordered(inode)-nwcoor+nccoor
+        !    p1 = fcoor(inodeidx)%dummy%val
+        !    elcod(1,inode) = p1(xdir)
+        !    elcod(2,inode) = p1(ydir)
+        !enddo
+
         allocate(pelem%cartd(2,4,4))
         allocate(pelem%djacb(4))
         allocate(pelem%gpcod(2,4))
-        
-        do igaus = 1,4
+
+        do igaus = 1,elemlibs(1)%ngaus
             call jacob(elcod,elemlibs(1)%deriv(:,:,igaus),pelem%cartd(:,:,igaus),pelem%djacb(igaus))
-            do idim = 1,2
+            do idim = 1,elemlibs(1)%ndim
                 pelem%gpcod(idim,igaus) = dot_product(elcod(idim,:),elemlibs(1)%shapefun(:,igaus))
             enddo
         enddo
-        
-    enddo
 
+    enddo
+100 format(I10,10F10.7)
+101 format(10F10.7)
+102 format(4(3F10.7,/))
     endsubroutine resortvertix
-    
-    
+
+
     subroutine getcentroid(pface)
     implicit none
     type(faceinfo),pointer::pface
     type(eleminfo),pointer::pelem
-    
+
     type(coorinfopointer),allocatable::fcoor(:)
     type(eleminfopointer),allocatable::felem(:)
-    
-    
+
+
     integer::ielem,jelem,telem,igaus,jgaus,tgaus,xdir,ydir
-    
+
     real(8),allocatable::shapefun(:),center(:)
-    real(8)::djacb,area,tarea
-    
+    real(8)::djacb,area,tarea,normal(3),theta,rot(3,3),fcenter(3),gcenter(3),direct(3)
+
     fcoor = pface%coor
     felem = pface%elem
-    
+
     allocate(shapefun(4))
     allocate(center(2))
     tarea = 0.0
     center = 0.0
-    eloop:do ielem = 1, pface%nelem
         
+    normal = 0.0
+    
+    do ielem = 1, pface%nelem
+
         pelem => felem(ielem)%dummy
-        
+
         area = 0.0
-        gloop:do igaus = 1, 4
+        do igaus = 1, 4
             center = center + pelem%djacb(igaus)*pelem%gpcod(:,igaus)
             area = area + pelem%djacb(igaus)
-        enddo gloop
+        enddo 
         tarea = tarea + area
-    enddo eloop
-    
+        normal = normal + pelem%normal
+    enddo 
+
     center = center / tarea
+    normal = normal / tarea
+    normal = normal / norm2(normal)
+    direct = fcoor(1)%dummy%val
+    !计算实际坐标
     
-    if(pface%dir==2)then
-        xdir=1
-        ydir=3
-    endif
-    
-    pface%cpoint(xdir) = center(1)
-    pface%cpoint(ydir) = center(2)
-    
-    
+    rot = rot_by_direct(direct,normal,pface%dir)
+    write(chkunit,*)"--------rot---------"
+    write(chkunit,"(3F10.7)")pface%theta,tarea
+    write(chkunit,"(3F10.7)")center
+    write(chkunit,"(3F10.7)")normal
+    write(chkunit,"(3F10.7)")
+    write(chkunit,"(3(3F10.7,/))")rot
+    fcenter = 0.
+    fcenter(1:2) = center
+    gcenter = solve(rot,fcenter)
+    write(chkunit,*)"--------gcenter---------"
+    gcenter(pface%dir) = pface%cpoint(pface%dir)
+    pface%cpoint = gcenter    
+    write(chkunit,"(3F10.7)")pface%cpoint
+    write(chkunit,"(3F10.7)")
+
     endsubroutine getcentroid
-    
+
     subroutine jacob(elcod,deriv,cartd,djacb)
     implicit none
     real(8)::cartd(:,:),deriv(:,:),elcod(:,:),xjacm(2,2),xjaci(2,2)
     real(8)::djacb
     integer::idim,jdim,inode
-    
+
     do idim = 1,2
         do jdim = 1,2
             xjacm(idim,jdim) = 0.0
@@ -943,13 +1203,13 @@
             enddo
         enddo
     enddo
-    
+
     djacb = xjacm(1,1)*xjacm(2,2)-xjacm(1,2)*xjacm(2,1)
     xjaci(1,1) =  xjacm(2,2)/djacb
     xjaci(2,2) =  xjacm(1,1)/djacb
     xjaci(1,2) = -xjacm(1,2)/djacb
     xjaci(2,1) = -xjacm(2,1)/djacb
-    
+
     do idim = 1,2
         do inode = 1, 4
             cartd(idim,inode) = 0.0
@@ -958,7 +1218,7 @@
             enddo
         enddo
     enddo
-    
+
     endsubroutine jacob
 
     !>读取并输出结果信息
@@ -966,7 +1226,7 @@
     subroutine resprocess
     use gidpost
 
-    character(300)   ::orgline,text
+    character(300)   ::orgline,text,groupname
     integer          ::idxi,idxj,ires,icomp,icoor,istep,idx,ielem,igroup,eidx,icut,iface,tcoor,telem,tlcoor,tlelem
     real            ::curtime
     real,allocatable::time(:)
@@ -1048,7 +1308,8 @@
 
         do iface = 1,cut(icut)%nface
             etype = gid_quadrilateral
-            call gid_fbeginmesh(fdm,"internal_cut",gid_3d,etype,4)
+            write(groupname,"('Cut_',I4,'_',I4)")icut,iface
+            call gid_fbeginmesh(fdm,groupname,gid_3d,etype,4)
 
             call gid_fbegincoordinates(fdm)
             do icoor =1, cut(icut)%face(iface)%nnode
@@ -1066,25 +1327,26 @@
             enddo
             call gid_fendelements(fdm)
             call gid_fendmesh(fdm)
-        enddo        
+        enddo
     enddo
-    
+
     tlcoor = tcoor
     tlelem = telem
     do icut = 1, ncut
-        
+
         etype = gid_linear
-        call gid_fbeginmesh(fdm,"internal_line",gid_3d,etype,2)
+        write(groupname,"('CutLine_',I4)")icut
+        call gid_fbeginmesh(fdm,groupname,gid_3d,etype,2)
         call gid_fbegincoordinates(fdm)
-        
+
         do iface = 1, cut(icut)%nface
             tlcoor = tlcoor + 1
             cut(icut)%face(iface)%cpidx = tlcoor
             call gid_fwritecoordinates(fdm,tlcoor,cut(icut)%face(iface)%cpoint(1),cut(icut)%face(iface)%cpoint(2),cut(icut)%face(iface)%cpoint(3))
         enddo
         call gid_fendcoordinates(fdm)
-        
-    
+
+
         call gid_fbeginelements(fdm)
         do iface = 1,cut(icut)%nface - 1
             tlelem = tlelem + 1
@@ -1266,25 +1528,25 @@
                     res.val(icoor)=res.pval
                     res.pval=>res.pval.next
                 enddo
-                
+
                 if(lowcase(res.resname) .eq. 'stress')then
                     nwcoor = ncoor
                     do icut = 1,ncut
                         do iface = 1,cut(icut)%nface
                             call internalforce(res%val,cut(icut)%face(iface))
-                        enddo 
-                    enddo 
-                    
+                        enddo
+                    enddo
+
                     call gid_fbeginresultheader(fdr,'axial_force','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
                     call gid_fresultvalues(fdr)
                     do icut = 1,ncut
                         do iface = 1,cut(icut)%nface
                             call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(1))
-                        enddo 
-                    enddo 
-                    
+                        enddo
+                    enddo
+
                     call gid_fendresult(fdr)
-                    
+
                 endif
 
                 !if(res.resname .eq. 'stress')then
@@ -1375,23 +1637,23 @@
     subroutine internalforce(resvalue,pface)
     type(resvalinfo),dimension(:),pointer::resvalue
     type(faceinfo) ::pface
-    
+
     type(coorinfopointer),allocatable::fcoor(:)
     type(eleminfopointer),allocatable::felem(:)
-    
-    
+
+
     integer::icoor,ielem,inode,irel,pidx,igaus,dir
     integer::relate(2)
     real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3)
     real(8)::disti,distj,distl
-    
+
     type(resvalinfo),dimension(:),pointer::fresvalue
-    
+
     fcoor = pface%coor
     felem = pface%elem
-    
+
     allocate(fresvalue(pface%nnode))
-    
+
     ! interpolate
     do icoor = 1, pface%nnode
         pcoor = fcoor(icoor)%dummy
@@ -1401,19 +1663,19 @@
             relval(:,irel) = resvalue(pidx)%dat
             relcod(:,irel) = coor(pidx)%val
         enddo
-        
+
         elcod = pcoor%val
         disti = sqrt(norm2(elcod - relcod(:,1)))
         distj = sqrt(norm2(elcod - relcod(:,2)))
         distl = sqrt(norm2(relcod(:,2) - relcod(:,1)))
         pval = disti/distl*relval(:,1) + distj/distl*relval(:,2)
-        
+
         allocate(fresvalue(icoor)%dat(6))
-        
+
         fresvalue(icoor)%dat = pval
-        
+
     enddo
-    
+
     !integral
     nqm = 0.
     do ielem = 1, pface%nelem
@@ -1434,9 +1696,9 @@
         enddo
     enddo
     pface%nqm = nqm
-    
+
     nwcoor = nwcoor + pface%nnode
-    
+
     endsubroutine internalforce
 
     end program zsjmoment

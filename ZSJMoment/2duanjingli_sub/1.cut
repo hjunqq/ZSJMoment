@@ -1,5 +1,19 @@
 ncut
-1
+2
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
+1                 2           2            0.52359877559829887307710723054658
+1 1 10*0
+0.0,0.0,0.0 0.0,19.2,0.0
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
+1                2            1            1.6
+1 1 1 1 0 0 0 0 0 0 0 0 
+0.0,0.0,0.0 0.0,19.2,0.0
+
+
+
+
+
+
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
 1                2            1            1.6
 1 1 1 1 0 0 0 0 0 0 0 0 
@@ -8,3 +22,14 @@ cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
 1                2            1            1.6
 0 1 0 1 0 0 0 0 0 0 0 0 
 0.0,0.0,0.0 0.0,19.2,0.0
+
+
+
+
+
+
+cut%cuttype
+1---沿坐标轴切割
+2---环向切割
+3---沿坐标轴读ftr
+4---环向读取ftr

@@ -109,22 +109,23 @@
     
         rot_by_direct(ydir,xdir) = 0.
         rot_by_direct(ydir,ydir) = cos(theta_plane)
-        rot_by_direct(ydir,zdir) = sin(theta_plane)
+        rot_by_direct(ydir,zdir) = -sin(theta_plane)
     
         rot_by_direct(zdir,xdir) = 0.
-        rot_by_direct(zdir,ydir) = -sin(theta_plane)
+        rot_by_direct(zdir,ydir) = sin(theta_plane)
         rot_by_direct(zdir,zdir) = cos(theta_plane)
         return
     endif
     
     theta_plane = atan2(direct(ydir),direct(xdir))
     if(theta_plane<0)theta_plane=theta_plane + 2.*pi
+    theta_plane = - theta_plane
     
     rot_by_direct(xdir,xdir) = cos(theta_plane)
-    rot_by_direct(xdir,ydir) = sin(theta_plane)
+    rot_by_direct(xdir,ydir) = -sin(theta_plane)
     rot_by_direct(xdir,zdir) = 0.
     
-    rot_by_direct(ydir,xdir) = -sin(theta_plane)
+    rot_by_direct(ydir,xdir) = sin(theta_plane)
     rot_by_direct(ydir,ydir) = cos(theta_plane)
     rot_by_direct(ydir,zdir) = 0.
     

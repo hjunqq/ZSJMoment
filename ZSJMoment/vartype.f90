@@ -76,10 +76,11 @@
 	
 	! nqm 1-÷·¡¶£¨2£¨3-ºÙ¡¶£¨4£¨5£¨6 Õ‰æÿ
 	type faceinfo
-		integer::index,nnode,nelem,dir,cpidx
-		real(8)::cpoint(3),nqm(6),normal(3),theta
+		integer::index,nnode,nelem,dir,cpidx,cuttype
+		real(8)::cpoint(3),nqm(6),normal(3),theta,lcenter(2)
 		type(coorinfopointer),allocatable::coor(:)
 		type(eleminfopointer),allocatable::elem(:)
+        type(resvalinfo),dimension(:),pointer::res
 		type(faceinfo),pointer::next
 	end type faceinfo
 

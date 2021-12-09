@@ -496,15 +496,15 @@
             !如果cuttype==2，沿环向切面，那么planenormal为轴向与环向的叉乘，centcoor为面中心点
             !此时interval为弧度，表示切割的角度
             if(cut(i)%cuttype==1)then
-                
+
                 centcoord = cut(i)%interval*isec / norm2(cut(i)%spoint - cut(i)%epoint) * (cut(i)%epoint - cut(i)%spoint) + cut(i)%spoint(dir)
                 secvalue = centcoord(dir)
                 planenormal = axisvec
-                
+
             elseif(cut(i)%cuttype==2)then
                 centcoord = cut(i)%spoint
                 secvalue = centcoord(dir)
-                
+
                 theta = cut(i)%interval*(isec-1)
                 if(dir==2)then
                     xdir=1
@@ -515,8 +515,8 @@
                 planenormal = axisvec .x. secvec
             endif
 
-            
-            
+
+
 
             nfaceelem = 0
 
@@ -553,7 +553,7 @@
                             evec = elemcenter-centcoord
 
                             etheta = atan2(evec(ydir),evec(xdir))
-                            
+
                             if(etheta<0)etheta = etheta + 2*pi
 
                             if(abs(etheta-theta)>pi/6)cycle
@@ -586,6 +586,7 @@
             pface%dir = dir
             pface%cpoint(dir) = secvalue
             pface%theta = theta
+            pface%cuttype = cut(i)%cuttype
 
             ! generate intersection node
 
@@ -948,7 +949,7 @@
     subroutine resortvertix(pface)
     implicit none
     type(faceinfo),pointer::pface
-    
+
     type(coorinfopointer),pointer::fcoor(:)
     type(eleminfopointer),pointer::felem(:)
 
@@ -963,7 +964,7 @@
 
     fcoor=>pface%coor
     felem=>pface%elem
-    
+
     ncelem = ubound(felem,1)
     nccoor = ubound(fcoor,1)
 
@@ -1054,11 +1055,11 @@
             p(:,knode) = fcoor(pelem%node(inode)-nwcoor+nccoor)%dummy%val
         enddo
         normal = normal_plane(p(:,1),p(:,2),p(:,3))
-        
-        
+
+
         pelem%normal = normal
         pelem%rot = rot_by_direct(direct,normal,pelem%dir)
-        
+
         !write(chkunit,*)"debug-----------------"
         !write(chkunit,"(3F10.7)")normal
         !write(chkunit,"(3(3F10.7,/))")rot
@@ -1084,15 +1085,15 @@
         elcod = matmul(rot,elcod)
         write(chkunit,*)"after:",ielem
         write(chkunit,102)elcod
-        normal = normal_plane(elcod(:,1),elcod(:,2),elcod(:,3))
-        if(abs(normal(1)-1)<small)then
-            elcod(1,:) = elcod(2,:)
-            elcod(2,:) = elcod(3,:)
-        elseif(abs(normal(2)-1)<small)then
-            elcod(2,:) = elcod(3,:)
-        endif
+        !normal = normal_plane(elcod(:,1),elcod(:,2),elcod(:,3))
+        !if(abs(normal(1)-1)<small)then
+        !    elcod(1,:) = elcod(2,:)
+        !    elcod(2,:) = elcod(3,:)
+        !elseif(abs(normal(2)-1)<small)then
+        !    elcod(2,:) = elcod(3,:)
+        !endif
         !write(chkunit,*)"--------proje---------"
-        
+
         !center = p1
         !计算投影点坐标
         !do inode = 1,pelem%enodes
@@ -1149,9 +1150,9 @@
     allocate(center(2))
     tarea = 0.0
     center = 0.0
-        
+
     normal = 0.0
-    
+
     do ielem = 1, pface%nelem
 
         pelem => felem(ielem)%dummy
@@ -1160,32 +1161,35 @@
         do igaus = 1, 4
             center = center + pelem%djacb(igaus)*pelem%gpcod(:,igaus)
             area = area + pelem%djacb(igaus)
-        enddo 
+        enddo
         tarea = tarea + area
         normal = normal + pelem%normal
-    enddo 
+    enddo
 
     center = center / tarea
+    
+    pface%lcenter = center
+    
     normal = normal / tarea
     normal = normal / norm2(normal)
     direct = fcoor(1)%dummy%val
     !计算实际坐标
-    
+
     rot = rot_by_direct(direct,normal,pface%dir)
-    write(chkunit,*)"--------rot---------"
-    write(chkunit,"(3F10.7)")pface%theta,tarea
-    write(chkunit,"(3F10.7)")center
-    write(chkunit,"(3F10.7)")normal
-    write(chkunit,"(3F10.7)")
-    write(chkunit,"(3(3F10.7,/))")rot
+    !write(chkunit,*)"--------rot---------"
+    !write(chkunit,"(3F10.7)")pface%theta,tarea
+    !write(chkunit,"(3F10.7)")center
+    !write(chkunit,"(3F10.7)")normal
+    !write(chkunit,"(3F10.7)")
+    !write(chkunit,"(3(3F10.7,/))")rot
     fcenter = 0.
     fcenter(1:2) = center
     gcenter = solve(rot,fcenter)
-    write(chkunit,*)"--------gcenter---------"
+    !write(chkunit,*)"--------gcenter---------"
     gcenter(pface%dir) = pface%cpoint(pface%dir)
-    pface%cpoint = gcenter    
-    write(chkunit,"(3F10.7)")pface%cpoint
-    write(chkunit,"(3F10.7)")
+    pface%cpoint = gcenter
+    !write(chkunit,"(3F10.7)")pface%cpoint
+    !write(chkunit,"(3F10.7)")
 
     endsubroutine getcentroid
 
@@ -1354,6 +1358,10 @@
             linenode(2) = cut(icut)%face(iface+1)%cpidx
             call gid_fwriteelement(fdm,tlelem,linenode)
         enddo
+        tlelem = tlelem +1
+        linenode(1) = cut(icut)%face(iface)%cpidx
+        linenode(2) = cut(icut)%face(1)%cpidx
+        call gid_fwriteelement(fdm,tlelem,linenode)
         call gid_fendelements(fdm)
         call gid_fendmesh(fdm)
     enddo
@@ -1531,17 +1539,92 @@
 
                 if(lowcase(res.resname) .eq. 'stress')then
                     nwcoor = ncoor
+                    tcoor = ncoor
+                    call gid_fbeginresultheader(fdr,'stress','analysis',res.timeana,gid_matrix,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
                     do icut = 1,ncut
                         do iface = 1,cut(icut)%nface
                             call internalforce(res%val,cut(icut)%face(iface))
+
+
+
+                            do icoor = 1, cut(icut)%face(iface)%nnode
+
+                                tcoor = tcoor + 1
+
+                                sxx = cut(icut)%face(iface)%res(icoor)%dat(1)
+                                syy = cut(icut)%face(iface)%res(icoor)%dat(2)
+                                szz = cut(icut)%face(iface)%res(icoor)%dat(3)
+                                sxy = cut(icut)%face(iface)%res(icoor)%dat(4)
+                                syz = cut(icut)%face(iface)%res(icoor)%dat(5)
+                                sxz = cut(icut)%face(iface)%res(icoor)%dat(6)
+
+
+                                call gid_fwrite3dmatrix(fdr,tcoor,sxx,syy,szz,sxy,syz,sxz)
+
+                            enddo
+
+
                         enddo
                     enddo
+                    call gid_fendresult(fdr)
 
                     call gid_fbeginresultheader(fdr,'axial_force','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
                     call gid_fresultvalues(fdr)
                     do icut = 1,ncut
                         do iface = 1,cut(icut)%nface
                             call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(1))
+
+                        enddo
+                    enddo
+
+                    call gid_fendresult(fdr)
+
+                    call gid_fbeginresultheader(fdr,'shear_force_xy','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
+                    do icut = 1,ncut
+                        do iface = 1,cut(icut)%nface
+                            call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(2))
+                        enddo
+                    enddo
+
+                    call gid_fendresult(fdr)
+
+                    call gid_fbeginresultheader(fdr,'shear_force_xz','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
+                    do icut = 1,ncut
+                        do iface = 1,cut(icut)%nface
+                            call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(3))
+                        enddo
+                    enddo
+
+                    call gid_fendresult(fdr)
+
+                    call gid_fbeginresultheader(fdr,'moment_x','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
+                    do icut = 1,ncut
+                        do iface = 1,cut(icut)%nface
+                            call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(4))
+                        enddo
+                    enddo
+
+                    call gid_fendresult(fdr)
+
+                    call gid_fbeginresultheader(fdr,'moment_y','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
+                    do icut = 1,ncut
+                        do iface = 1,cut(icut)%nface
+                            call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(5))
+                        enddo
+                    enddo
+
+                    call gid_fendresult(fdr)
+
+                    call gid_fbeginresultheader(fdr,'torsion_xy','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)
+                    call gid_fresultvalues(fdr)
+                    do icut = 1,ncut
+                        do iface = 1,cut(icut)%nface
+                            call gid_fwritescalar(fdr,cut(icut)%face(iface)%cpidx,cut(icut)%face(iface)%nqm(6))
                         enddo
                     enddo
 
@@ -1644,7 +1727,7 @@
 
     integer::icoor,ielem,inode,irel,pidx,igaus,dir
     integer::relate(2)
-    real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3)
+    real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3),rot(3,3),stres(3,3),dist(2)
     real(8)::disti,distj,distl
 
     type(resvalinfo),dimension(:),pointer::fresvalue
@@ -1665,9 +1748,9 @@
         enddo
 
         elcod = pcoor%val
-        disti = sqrt(norm2(elcod - relcod(:,1)))
-        distj = sqrt(norm2(elcod - relcod(:,2)))
-        distl = sqrt(norm2(relcod(:,2) - relcod(:,1)))
+        disti = norm2(elcod - relcod(:,1))
+        distj = norm2(elcod - relcod(:,2))
+        distl = norm2(relcod(:,2) - relcod(:,1))
         pval = disti/distl*relval(:,1) + distj/distl*relval(:,2)
 
         allocate(fresvalue(icoor)%dat(6))
@@ -1676,25 +1759,68 @@
 
     enddo
 
+    pface%res => fresvalue
+
     !integral
     nqm = 0.
-    do ielem = 1, pface%nelem
-        pelem => felem(ielem)%dummy
-        dir = pelem%dir
-        do igaus = 1, 4
-            pidx = pelem%node(igaus)-nwcoor
-            pval = fresvalue(pidx)%dat
-            nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(2)
-            nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(4)
-            nqm(3) = nqm(3) + pelem%djacb(igaus)*pval(6)
-            vec = - pface%cpoint
-            vec(1) = vec(1) + pelem%gpcod(1,igaus)
-            vec(3) = vec(3) + pelem%gpcod(2,igaus)
-            nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(2)*vec(3)
-            nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(2)*vec(1)
-            nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(5)*sqrt(norm2(vec))
+    select case(pface%cuttype)
+    case(1)
+        if(pface%dir==2)then
+            do ielem = 1, pface%nelem
+                pelem => felem(ielem)%dummy
+                dir = pelem%dir
+                rot = pelem%rot
+                do igaus = 1, 4
+                    pidx = pelem%node(igaus)-nwcoor
+                    pval = fresvalue(pidx)%dat
+                    nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(2)
+                    nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(4)
+                    nqm(3) = nqm(3) + pelem%djacb(igaus)*pval(6)
+                    vec = - pface%cpoint
+                    vec(1) = vec(1) + pelem%gpcod(1,igaus)
+                    vec(3) = vec(3) + pelem%gpcod(2,igaus)
+                    nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(2)*vec(3)
+                    nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(2)*vec(1)
+                    nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(5)*norm2(vec)
+                enddo
+            enddo
+        endif
+    case(2)
+        do ielem = 1, pface%nelem
+            pelem => felem(ielem)%dummy
+            rot = pelem%rot
+            do igaus = 1, 4
+                pidx = pelem%node(igaus)-nwcoor
+                pval = fresvalue(pidx)%dat
+                stres(1,1) = pval(1)
+                stres(2,2) = pval(2)
+                stres(3,3) = pval(3)
+                stres(1,2) = pval(4)
+                stres(2,1) = pval(4)
+                stres(2,3) = pval(5)
+                stres(3,2) = pval(5)
+                stres(1,3) = pval(6)
+                stres(3,1) = pval(6)
+                stres = matmul(rot,matmul(stres,rot))
+                pval(1) = stres(1,1)    !xx
+                pval(2) = stres(2,2)    !yy
+                pval(3) = stres(3,3)    !zz
+                pval(4) = stres(1,2)    !xy
+                pval(5) = stres(2,3)    !yz
+                pval(6) = stres(3,1)    !xz
+
+                nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(3)  !Nxx
+                nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(6)  !Sxy
+                nqm(3) = nqm(3) + pelem%djacb(igaus)*pval(5)  !Sxz
+                dist = pelem%gpcod(:,igaus) - pface%lcenter
+                nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(3)*dist(1)   !Mx
+                nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(3)*dist(2)   !My
+                nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(4)*norm2(dist) !Tyz
+
+            enddo
         enddo
-    enddo
+    end select
+
     pface%nqm = nqm
 
     nwcoor = nwcoor + pface%nnode

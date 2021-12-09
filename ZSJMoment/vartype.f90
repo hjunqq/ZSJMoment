@@ -77,23 +77,28 @@
 	! nqm 1-轴力，2，3-剪力，4，5，6 弯矩
 	type faceinfo
 		integer::index,nnode,nelem,dir,cpidx,cuttype
-		real(8)::cpoint(3),nqm(6),normal(3),theta,lcenter(2)
+		real(8)::cpoint(3),nqm(6),normal(3),theta,lcenter(2),rot(3,3)
 		type(coorinfopointer),allocatable::coor(:)
 		type(eleminfopointer),allocatable::elem(:)
         type(resvalinfo),dimension(:),pointer::res
 		type(faceinfo),pointer::next
-	end type faceinfo
+    end type faceinfo
+    
+    type faceinfopointer
+        type(faceinfo),pointer::dummy
+    endtype
 
 	!>切面信息
 	!!@param cuttype 切面类型： 1 - 按照间隔切面 2 - 按照单元切面 3- 按照间隔查找最接近的单元面
 	type cutinfo
-		integer::index,dir,ngroup,nface
+		integer::index,dir,ngroup,nface,nsurf
 		integer::cuttype
 		real(8)::interval
 		real(8)::spoint(3),epoint(3)
 		integer,allocatable::appeargroup(:)
 		integer,allocatable::group(:)
-		type(faceinfo),allocatable::face(:)
+		!type(faceinfo),allocatable::face(:)
+        type(faceinfopointer),allocatable::face(:)
 	end type cutinfo
 	
 
@@ -112,12 +117,17 @@
 		character(70)   ::resname,ananame,restype
 		character(70),allocatable::compname(:)
 		character(70)   ::loaddesc
+        integer			::surf
 		integer         ::index,nval,loadtype,datatype,dataloc,desccomp,gausspoint
 		real(8)            ::timeana
 		type(resvalinfo),dimension(:),pointer::val
 		type(resvalinfo),pointer::valhead,pval,vallast
 		type(resinfo),pointer::next
-	end type
+    end type
+    
+    type resinfopointer
+		type(resinfo),pointer::dummy
+    end type
 
 
 	type meshgroupinfo
@@ -126,8 +136,8 @@
 		type(resinfo),dimension(:),pointer::res
 	endtype
 
-	integer::mshunit,resunit,inpunit,cutunit,chkunit
-	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem
+	integer::mshunit,resunit,inpunit,cutunit,chkunit,ftrunit,ftfunit
+	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem,nforce,nfres,nbres
 	logical::ismeshgroup,isoldformat
 	character(len=128)::arg
 	integer::narg,iarg
@@ -151,6 +161,8 @@
 	type(cutinfo),pointer::cuthead,pcut,cutlast
 	type(cutinfo),allocatable::cut(:)
 	type(faceinfo),pointer::facehead,pface,facelast
+    type(faceinfo),dimension(:),pointer::surf
+    type(resinfopointer),dimension(:),pointer::surfres
 	type(faceinfo),allocatable::face(:)
 	
 	type(eleminfo),pointer::piselem

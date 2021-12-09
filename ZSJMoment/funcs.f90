@@ -98,7 +98,7 @@
     endif
     zdir = axis
     
-    if(abs(normal(axis)-1.0)<small)then
+    if(abs(abs(normal(axis))-1.0)<small)then
         !如果是面方向与轴向相同，则绕x轴旋转
         theta_plane = atan2(normal(zdir),normal(ydir))
         theta_plane = -theta_plane

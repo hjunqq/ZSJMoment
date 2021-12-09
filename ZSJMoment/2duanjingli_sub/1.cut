@@ -1,5 +1,10 @@
 ncut
-2
+1
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
+1                2            3            1.6           3
+1 2 3
+1 1 1 1 0 0 0 0 0 0 0 0 
+0.0,0.0,0.0 0.0,19.2,0.0
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
 1                 2           2           0.09817477042468103870195760572748
 1 1 10*0

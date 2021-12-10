@@ -1,4 +1,4 @@
-    module funcs 
+    module funcs
     use datatype
     implicit none
     interface operator (.x.)
@@ -79,13 +79,13 @@
     normal_plane = cross_product(v1,v2)
     normal_plane = normal_plane / norm2(normal_plane)
     end function normal_plane
-    
+
     function rot_by_direct(direct,normal,axis)
     real(8), dimension(3),intent(in):: direct,normal
     real(8) :: theta_plane
     real(8),dimension(3,3)::rot_by_direct
     integer::axis,xdir,ydir,zdir,perm(3)
-    
+
     if(axis==1)then
         xdir = 2
         ydir = 3
@@ -97,52 +97,52 @@
         ydir = 2
     endif
     zdir = axis
-    
+
     if(abs(abs(normal(axis))-1.0)<small)then
         !如果是面方向与轴向相同，则绕x轴旋转
         theta_plane = atan2(normal(zdir),normal(ydir))
         theta_plane = -theta_plane
-        
+
         rot_by_direct(xdir,xdir) = 1.
         rot_by_direct(xdir,ydir) = 0.
         rot_by_direct(xdir,zdir) = 0.
-    
+
         rot_by_direct(ydir,xdir) = 0.
         rot_by_direct(ydir,ydir) = cos(theta_plane)
         rot_by_direct(ydir,zdir) = -sin(theta_plane)
-    
+
         rot_by_direct(zdir,xdir) = 0.
         rot_by_direct(zdir,ydir) = sin(theta_plane)
         rot_by_direct(zdir,zdir) = cos(theta_plane)
         return
     endif
-    
+
     theta_plane = atan2(direct(ydir),direct(xdir))
     if(theta_plane<0)theta_plane=theta_plane + 2.*pi
     theta_plane = - theta_plane
-    
+
     rot_by_direct(xdir,xdir) = cos(theta_plane)
     rot_by_direct(xdir,ydir) = -sin(theta_plane)
     rot_by_direct(xdir,zdir) = 0.
-    
+
     rot_by_direct(ydir,xdir) = sin(theta_plane)
     rot_by_direct(ydir,ydir) = cos(theta_plane)
     rot_by_direct(ydir,zdir) = 0.
-    
+
     rot_by_direct(zdir,xdir) = 0.
     rot_by_direct(zdir,ydir) = 0.
     rot_by_direct(zdir,zdir) = 1.
-    
-    
-    
+
+
+
     end function rot_by_direct
-    
+
     function rot_plane(normal,axis)
     real(8), dimension(3),intent(in):: normal
     real(8) :: theta_plane
     real(8),dimension(3,3)::rot_plane
     integer::axis,xdir,ydir,zdir,perm(3)
-    
+
     if(axis==1)then
         xdir = 2
         ydir = 3
@@ -154,45 +154,84 @@
         ydir = 2
     endif
     zdir = axis
-    
+
     if(abs(normal(axis)-1.0)<small)then
         !如果是面方向与轴向相同，则绕x轴旋转
         theta_plane = atan2(normal(zdir),normal(ydir))
         theta_plane = -theta_plane
-        
+
         rot_plane(xdir,xdir) = 1.
         rot_plane(xdir,ydir) = 0.
         rot_plane(xdir,zdir) = 0.
-    
+
         rot_plane(ydir,xdir) = 0.
         rot_plane(ydir,ydir) = cos(theta_plane)
         rot_plane(ydir,zdir) = sin(theta_plane)
-    
+
         rot_plane(zdir,xdir) = 0.
         rot_plane(zdir,ydir) = -sin(theta_plane)
         rot_plane(zdir,zdir) = cos(theta_plane)
         return
     endif
-    
+
     theta_plane = atan2(normal(ydir),normal(xdir))
     if(theta_plane<0)theta_plane=theta_plane + 2.*pi
     theta_plane = theta_plane - pi/2.
     theta_plane = -theta_plane
-    
+
     rot_plane(xdir,xdir) = cos(theta_plane)
     rot_plane(xdir,ydir) = sin(theta_plane)
     rot_plane(xdir,zdir) = 0.
-    
+
     rot_plane(ydir,xdir) = -sin(theta_plane)
     rot_plane(ydir,ydir) = cos(theta_plane)
     rot_plane(ydir,zdir) = 0.
-    
+
     rot_plane(zdir,xdir) = 0.
     rot_plane(zdir,ydir) = 0.
     rot_plane(zdir,zdir) = 1.
-    
+
     end function rot_plane
-    
+
+    function RotMatrix(r,axis)
+    real(8) r(3)
+    real(8) RotMatrix(3,3)
+    integer axis
+
+    integer	idimn
+    real(8)	unitvec(3),dotvec(3)
+    real(8)	c,s,x,y,z
+
+    r(axis) = 0
+    !x,y,z 旋转轴
+    x = 0;y = 0;z = 0
+    if(axis==1)then
+        c = r(2)
+        s = r(3)
+        x = 1
+    elseif(axis ==2)then
+        c = r(1)
+        s = -r(3)
+        y = 1
+    elseif(axis ==3)then
+        c = r(1)
+        s = r(2)
+        z = 1
+    endif
+
+
+    RotMatrix(1,1)=c+(1-c)*x*x
+    RotMatrix(1,2)=(1-c)*x*y+s*z
+    RotMatrix(1,3)=(1-c)*x*z-s*y
+    RotMatrix(2,1)=(1-c)*x*y-s*z
+    RotMatrix(2,2)=c+(1-c)*y*y
+    RotMatrix(2,3)=(1-c)*y*z+s*x
+    RotMatrix(3,1)=(1-c)*z*x+s*y
+    RotMatrix(3,2)=(1-c)*z*y-s*x
+    RotMatrix(3,3)=c+(1-c)*z*z
+    !r = matmul(RotMatrix,r)
+    end function RotMatrix
+
     function inv(a)
     use lapack95
     integer::ipiv(3)
@@ -201,7 +240,7 @@
     call getrf(inv,ipiv)
     call getri(inv,ipiv)
     end function inv
-    
+
     function solve(a,b)
     use lapack95
     real(8)::a(3,3),b(3),solve(3)

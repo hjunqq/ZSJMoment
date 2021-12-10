@@ -327,7 +327,7 @@
     real(8)::cnst3,s,t,st
     integer::idim,igaus
 
-    ntype = 1
+    ntype = 2
     allocate(elemlibs(ntype))
     elemlibs(1)%index = 9
     elemlibs(1)%nline = 12
@@ -780,7 +780,7 @@
     iface = 0
     do while(associated(pface))
         iface = iface +1
-        cuti%face(iface)%dummy = pface
+        cuti%face(iface)%dummy => pface
         pface => pface%next
     enddo
 
@@ -796,6 +796,7 @@
 
     read(ftrunit,*)text
     read(ftrunit,*)nforce
+    if(nforce==0)return
     read(ftrunit,*)text
     read(ftrunit,*)text
     read(ftrunit,*)text
@@ -832,6 +833,8 @@
     implicit none
     integer:: iforce,ie,ip,jp,ires
     real(8):: ttime
+
+    if(nforce==0)return
 
     nullify(reshead)
     nullify(reslast)
@@ -1030,9 +1033,9 @@
     !单元重排，并删除重复单元
     pielem=>elemhead
     do while(associated(pielem))
-        !write(chkunit,"(10I10)")pielem%index,pielem%node
+        write(chkunit,"(10I10)")pielem%index,pielem%node
         pielem%node = reorder(nodemap(pielem%node))
-        !write(chkunit,"(10I10)")pielem%index,pielem%node
+        write(chkunit,"(10I10)")pielem%index,pielem%node
         pielem=>pielem%next
     enddo
 
@@ -1137,7 +1140,7 @@
     integer::xdir,ydir
 
     integer::ordered(20),nodetag(20),enodemap(20),is
-    real(8)::p1(3),p2(3),p3(3),v(3),theta(20),elcod(3,4),normal(3),rot(3,3),center(3),projp1(3),p(3,4),direct(3)
+    real(8)::p1(3),p2(3),p3(3),v(3),theta(20),elcod(3,8),normal(3),rot(3,3),center(3),projp1(3),p(3,8),direct(3)
 
     fcoor=>pface%coor
     felem=>pface%elem
@@ -1295,7 +1298,7 @@
         do igaus = 1,elemlibs(1)%ngaus
             call jacob(elcod,elemlibs(1)%deriv(:,:,igaus),pelem%cartd(:,:,igaus),pelem%djacb(igaus))
             do idim = 1,elemlibs(1)%ndim
-                pelem%gpcod(idim,igaus) = dot_product(elcod(idim,:),elemlibs(1)%shapefun(:,igaus))
+                pelem%gpcod(idim,igaus) = dot_product(elcod(idim, 1:4),elemlibs(1)%shapefun(:,igaus))
             enddo
         enddo
 
@@ -1696,7 +1699,7 @@
                     allocate(res.pval)
                     allocate(res.pval.dat(res.nval))
                     read(orgline,*)res.pval.index,res.pval.dat
-                    if(icoor/=res.pval.index)stop 'res error!'
+                    !if(icoor/=res.pval.index)stop 'res error!'
                     res.pval.next=>null()
                     if(associated(res.vallast))then
                         res.vallast.next=>res.pval
@@ -1730,33 +1733,33 @@
 
                     call gid_fbeginresultheader(fdr,'stress','analysis',res.timeana,gid_matrix,gid_onnodes,gid_null)
                     call gid_fresultvalues(fdr)
-                    
-                    
+
+
                     do icut = 1,ncut
                         if(cut(icut)%cuttype==1 .or. cut(icut)%cuttype==2)then
                             do iface = 1,cut(icut)%nface
                                 do icoor = 1, cut(icut)%face(iface)%dummy%nnode
-                    
+
                                     tcoor = tcoor + 1
-                    
+
                                     sxx = cut(icut)%face(iface)%dummy%res(icoor)%dat(1)
                                     syy = cut(icut)%face(iface)%dummy%res(icoor)%dat(2)
                                     szz = cut(icut)%face(iface)%dummy%res(icoor)%dat(3)
                                     sxy = cut(icut)%face(iface)%dummy%res(icoor)%dat(4)
                                     syz = cut(icut)%face(iface)%dummy%res(icoor)%dat(5)
                                     sxz = cut(icut)%face(iface)%dummy%res(icoor)%dat(6)
-                    
-                    
+
+
                                     call gid_fwrite3dmatrix(fdr,tcoor,sxx,syy,szz,sxy,syz,sxz)
-                    
+
                                 enddo
                             enddo
                         else
                             call gid_fwrite3dmatrix(fdr,1,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0)
                         endif
                     enddo
-                    
-                    
+
+
                     call gid_fendresult(fdr)
 
                     call gid_fbeginresultheader(fdr,'axial_force','analysis',res.timeana,gid_scalar,gid_onnodes,gid_null)

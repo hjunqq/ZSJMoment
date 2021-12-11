@@ -193,6 +193,40 @@
 
     end function rot_plane
 
+    function direct_beam(vec)
+    implicit none 
+    real(8)::vec(3),r(3,3),xx
+    
+    r(1,:) = vec
+    
+    xx = vec(1)**2 + vec(3)**2
+    
+    if(xx.gt. .001)then
+        r(3,1) = -vec(3)
+        r(3,2) = 0.
+        r(3,3) = vec(3)
+    else
+        r(3,1) = vec(2)
+        r(3,2) = -vec(1)
+        r(3,3) = 0.
+    endif
+    
+    xx = norm2(r(3,:))
+    
+    r(3,:)=r(3,:)/xx
+    r(2,1)=r(3,2)*r(1,3)-r(3,3)*r(1,2)
+    r(2,2)=r(3,3)*r(1,1)-r(3,1)*r(1,3)
+    r(2,3)=r(3,1)*r(1,2)-r(3,2)*r(1,1)
+    
+    xx=norm2(r(2,:))
+    
+    r(2,:)=r(2,:)/xx
+    
+    direct_beam = r
+    
+    endfunction direct_beam
+    
+    
     function RotMatrix(r,axis)
     real(8) r(3)
     real(8) RotMatrix(3,3)

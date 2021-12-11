@@ -1,5 +1,5 @@
-ncut,originmesh,cutmesh
-2     .False.    .True.
+ncut,originmesh,cutmesh,nbem
+2     .False.    .True.  19
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
 1                 2           2          0.09817477042468103870195760572748 0
 0

@@ -136,8 +136,8 @@
 		type(resinfo),dimension(:),pointer::res
 	endtype
 
-	integer::mshunit,resunit,inpunit,cutunit,chkunit,ftrunit,ftfunit
-	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem,nforce,nfres,nbres
+	integer::mshunit,resunit,inpunit,cutunit,chkunit,ftrunit,ftfunit,bemunit
+	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem,nforce,nfres,nbres,nbeam
 	logical::ismeshgroup,isoldformat,isoriginmesh,iscutmesh
 	character(len=128)::arg
 	integer::narg,iarg
@@ -162,7 +162,7 @@
 	type(cutinfo),allocatable::cut(:)
 	type(faceinfo),pointer::facehead,pface,facelast
     type(faceinfo),dimension(:),pointer::surf
-    type(resinfopointer),dimension(:),pointer::surfres
+    type(resinfopointer),dimension(:),pointer::surfres,beamres
 	type(faceinfo),allocatable::face(:)
 	
 	type(eleminfo),pointer::piselem

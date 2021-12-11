@@ -73,6 +73,12 @@
     call readftf
 
     close(ftfunit)
+    
+    open(bemunit, file = fpath(1:len_trim(fpath))//".bem")
+    
+    call readbeam
+     
+    close(bemunit)
 
     call getplaneface
 
@@ -294,7 +300,7 @@
     nullify(cutlast)
 
     read(cutunit,*)text
-    read(cutunit,*)ncut,isoriginmesh,iscutmesh
+    read(cutunit,*)ncut,isoriginmesh,iscutmesh,nbeam
 
     allocate(cut(ncut))
 
@@ -448,7 +454,7 @@
             !读取ftr
             call getcutsurf(cut(i))
         endselect
-
+        
     enddo
 
     endsubroutine getplaneface
@@ -896,7 +902,51 @@
     enddo
 
     end subroutine readftf
-
+    
+    subroutine readbeam()
+    implicit none
+    real(8)::ttime
+    integer::ibeam,ires
+    
+    if(nbeam==0)return
+    
+    nullify(reshead)
+    nullify(reslast)
+    nres = 0
+    do 
+        read(bemunit,*,end=100)text
+        read(bemunit,*)ttime
+        nres = nres + 1
+        allocate(pres)
+        pres%timeana = ttime
+        pres%nval = 12
+        allocate(pres%val(nbeam))
+        do ibeam = 1,nbeam
+            allocate(pres%val(ibeam)%dat(12))
+            read(bemunit,*)pres%val(ibeam)%index,pres%val(ibeam)%dat
+        enddo
+        read(bemunit,*)text
+        if(associated(reslast))then
+            reslast%next => pres
+            reslast=>pres
+        else
+            reshead => pres
+            reslast => pres
+        endif
+    enddo
+100 allocate(beamres(nres))
+    
+    nbres = nres
+    pres=>reshead
+    ires = 0
+    do while(associated(pres))
+        ires = ires +1
+        beamres(ires)%dummy => pres
+        pres => pres%next
+    enddo
+    
+    end subroutine readbeam
+    
     subroutine getcutsurf(cuti)
     type(cutinfo)::cuti
     integer::isurf,ie,surfidx,iface,inode,inodeidx,igaus,idim
@@ -978,6 +1028,48 @@
 
     end subroutine getcutsurf
 
+    !subroutine getbeamvalue(cuti,ttime)
+    !implicit none
+    !type(cutinfo)::cuti
+    !
+    !type(resinfo),pointer::beamset
+    !
+    !
+    !real(8)::fcenter(3),normal(3),p1(3),p2(3),ispoint(3),pval(6),ttime
+    !
+    !integer::iface,ibeam,ielem,inode,jnode
+    !
+    !if(nbeam==0)return
+    !
+    !do i
+    !beamset => beamres(1)%dummy
+    !
+    !do iface = 1, cuti%nface
+    !    pface => cuti%face(iface)%dummy
+    !    
+    !    fcenter = pface%cpoint
+    !
+    !    normal = pface%normal
+    !    
+    !    
+    !    do ibeam = 1,nbeam
+    !        ielem = beamset%val(ibeam)%index
+    !        pelem = elem(ielem)      
+    !        inode = pelem%node(1)
+    !        jnode = pelem%node(2)
+    !        coori = coor(inode)
+    !        coorj = coor(jnode)
+    !        is = intersection(coorj%val-coori%val,coori%val,normal,fcenter,ispoint)
+    !        if(is==1)then !相交，插值
+    !            disti = norm2(ispoint - coori%val)
+    !            distj = norm2(ispoint - coorj%val)
+    !            distl = norm2(coori%val-coorj%val)
+    !        endif
+    !    enddo
+    !    
+    !enddo
+    !endsubroutine getbeamvalue
+    
     subroutine deldupnode(coorhead,elemhead)
     implicit none
     type(coorinfo),pointer::picoor,pjcoor,coorhead,pkcoor
@@ -1622,11 +1714,9 @@
     select case(trim(restype))
     case('binary')
     case('ascii')
-        call gid_fclosepostmeshfile(fdr)
+        call gid_fclosepostmeshfile(fdm)
     case('hdf5')
     end select
-
-    stop
 
     nres = 0
     nullify(reshead)
@@ -1779,7 +1869,10 @@
                     allocate(res.pval)
                     allocate(res.pval.dat(res.nval))
                     read(orgline,*)res.pval.index,res.pval.dat
-                    !if(icoor/=res.pval.index)stop 'res error!'
+                    if(icoor/=res.pval.index)then
+                        !处理缺点的问题
+                        stop 'res error!'
+                    endif
                     res.pval.next=>null()
                     if(associated(res.vallast))then
                         res.vallast.next=>res.pval
@@ -1800,6 +1893,7 @@
                 enddo
 
                 if(lowcase(res.resname) .eq. 'stress')then
+                    
                     nwcoor = ncoor
                     tcoor = ncoor
 
@@ -1835,7 +1929,7 @@
                                 enddo
                             enddo
                         else
-                            call gid_fwrite3dmatrix(fdr,1,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0)
+                            !call gid_fwrite3dmatrix(fdr,1,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0,0.0d0)
                         endif
                     enddo
 
@@ -1934,7 +2028,7 @@
 
     subroutine internalforce(res,pface)
     type(resinfo)::res
-    type(resinfo),pointer::pfres
+    type(resinfo),pointer::pfres,pbres
     type(resvalinfo),dimension(:),pointer::resvalue
     type(faceinfo) ::pface
 
@@ -1947,7 +2041,7 @@
     real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3),rot(3,3),stres(3,3),dist(2)
     real(8)::disti,distj,distl
 
-    type(resvalinfo),dimension(:),pointer::fresvalue
+    type(resvalinfo),dimension(:),pointer::fresvalue,bresvalue
 
     resvalue=>res%val
     ctime = res%timeana
@@ -1992,6 +2086,12 @@
                 enddo
             endif
         enddo
+        
+        do ires = 1, nbres
+            if(abs(beamres(ires)%dummy%timeana-ctime)<small)then
+                pbres => beamres(ires)%dummy
+            endif
+        enddo
 
     endselect
 
@@ -2007,7 +2107,7 @@
                 dir = pelem%dir
                 rot = pelem%rot
                 do igaus = 1, 4
-                    pidx = pelem%node(igaus)-nwcoor
+                    pidx = pelem%node(igaus)
                     pval = fresvalue(pidx)%dat
                     nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(2)
                     nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(4)
@@ -2026,7 +2126,7 @@
             pelem => felem(ielem)%dummy
             rot = pelem%rot
             do igaus = 1, 4
-                pidx = pelem%node(igaus)-nwcoor
+                pidx = pelem%node(igaus)
                 pval = fresvalue(pidx)%dat
                 stres(1,1) = pval(1)
                 stres(2,2) = pval(2)
@@ -2077,7 +2177,39 @@
 
         enddo
     end select
+    
+    if(nbeam>0)then
+        fcenter = pface%cpoint
+        normal = pface%normal
+        do ibeam = 1, nbeam
+            ielem = pbres%val(ibeam)%index
+            relate = elem(ielem)%node
+            
+            do irel = 1, 2
+                pidx = relate(irel)
+                relval(:,irel) = pbres%val(ibeam)%val(1+(irel-1)*6:irel*6)
+                relcod(:,irel) = coor(pidx)%val
+            enddo
+            
+            is = intersection(relcod(:,2)-relcod(:,1),relcod(:,1),normal,fcenter,elcod)
 
+            if(is==1)then
+                disti = norm2(elcod - relcod(:,1))
+                distj = norm2(elcod - relcod(:,2))
+                distl = norm2(relcod(:,2) - relcod(:,1))
+                rot = direct_beam(relcod(:,2) - relcod(:,1))
+                
+                pval = disti/distl*relval(:,1) + distj/distl*relval(:,2)
+                
+                !转换成整体坐标
+                pval(1:3) = solve(rot,pval(1:3))
+                pval(4:6) = solve(rot,pval(4:6))
+                
+            endif
+            
+        enddo
+    endif
+    
     pface%nqm = nqm
 
     nwcoor = nwcoor + pface%nnode

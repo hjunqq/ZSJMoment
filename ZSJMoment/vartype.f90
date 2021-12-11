@@ -138,7 +138,7 @@
 
 	integer::mshunit,resunit,inpunit,cutunit,chkunit,ftrunit,ftfunit
 	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem,nforce,nfres,nbres
-	logical::ismeshgroup,isoldformat
+	logical::ismeshgroup,isoldformat,isoriginmesh,iscutmesh
 	character(len=128)::arg
 	integer::narg,iarg
 	real::pcenter(3)
@@ -178,5 +178,6 @@
 
 	real,parameter:: pi=3.1415927
 	real,parameter:: small=0.00000001
+    real,parameter:: bigsmall=0.0001
 
 	end module

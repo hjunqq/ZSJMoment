@@ -1,0 +1,34 @@
+GiD Post Results File 1.2
+MESH "           1" dimension 3 ElemType Hexahedra Nnode 8
+Coordinates
+1 0 0 0
+2 0 1 0
+3 1 0 0
+4 0 0 1
+5 0 1 1
+6 1 0 1
+7 1 1 0
+8 1 1 1
+End Coordinates
+Elements
+1 6 8 7 3 4 5 2 1
+End Elements
+MESH "Cut_   1_   1" dimension 3 ElemType Quadrilateral Nnode 4
+Coordinates
+9 0.971214612 0 1
+10 0.560731028 1 0
+11 0 0 0
+12 1 0.0513354656 1
+13 1 1 0.452288266
+End Coordinates
+Elements
+2 9 10 11 11
+3 9 12 13 10
+End Elements
+MESH "CutLine_   1" dimension 3 ElemType Linear Nnode 2
+Coordinates
+14 0.688708578 0 0.709120898
+End Coordinates
+Elements
+4 14 14
+End Elements

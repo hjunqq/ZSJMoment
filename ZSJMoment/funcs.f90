@@ -195,7 +195,7 @@
 
     function direct_beam(vec)
     implicit none 
-    real(8)::vec(3),r(3,3),xx
+    real(8)::vec(3),r(3,3),xx,direct_beam(3,3)
     
     r(1,:) = vec
     

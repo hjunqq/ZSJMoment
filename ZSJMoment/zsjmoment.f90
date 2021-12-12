@@ -73,11 +73,11 @@
     call readftf
 
     close(ftfunit)
-    
+
     open(bemunit, file = fpath(1:len_trim(fpath))//".bem")
-    
+
     call readbeam
-     
+
     close(bemunit)
 
     call getplaneface
@@ -454,7 +454,7 @@
             !读取ftr
             call getcutsurf(cut(i))
         endselect
-        
+
     enddo
 
     endsubroutine getplaneface
@@ -902,18 +902,18 @@
     enddo
 
     end subroutine readftf
-    
+
     subroutine readbeam()
     implicit none
     real(8)::ttime
     integer::ibeam,ires
-    
+
     if(nbeam==0)return
-    
+
     nullify(reshead)
     nullify(reslast)
     nres = 0
-    do 
+    do
         read(bemunit,*,end=100)text
         read(bemunit,*)ttime
         nres = nres + 1
@@ -935,7 +935,7 @@
         endif
     enddo
 100 allocate(beamres(nres))
-    
+
     nbres = nres
     pres=>reshead
     ires = 0
@@ -944,9 +944,9 @@
         beamres(ires)%dummy => pres
         pres => pres%next
     enddo
-    
+
     end subroutine readbeam
-    
+
     subroutine getcutsurf(cuti)
     type(cutinfo)::cuti
     integer::isurf,ie,surfidx,iface,inode,inodeidx,igaus,idim
@@ -1046,15 +1046,15 @@
     !
     !do iface = 1, cuti%nface
     !    pface => cuti%face(iface)%dummy
-    !    
+    !
     !    fcenter = pface%cpoint
     !
     !    normal = pface%normal
-    !    
-    !    
+    !
+    !
     !    do ibeam = 1,nbeam
     !        ielem = beamset%val(ibeam)%index
-    !        pelem = elem(ielem)      
+    !        pelem = elem(ielem)
     !        inode = pelem%node(1)
     !        jnode = pelem%node(2)
     !        coori = coor(inode)
@@ -1066,10 +1066,10 @@
     !            distl = norm2(coori%val-coorj%val)
     !        endif
     !    enddo
-    !    
+    !
     !enddo
     !endsubroutine getbeamvalue
-    
+
     subroutine deldupnode(coorhead,elemhead)
     implicit none
     type(coorinfo),pointer::picoor,pjcoor,coorhead,pkcoor
@@ -1487,7 +1487,7 @@
     enddo
 
     center = center / tarea
-    
+
     gcenter = gcenter/ tarea
 
     pface%lcenter = center
@@ -1868,11 +1868,12 @@
                     icoor=icoor+1
                     allocate(res.pval)
                     allocate(res.pval.dat(res.nval))
-                    read(orgline,*)res.pval.index,res.pval.dat
-                    if(icoor/=res.pval.index)then
-                        !处理缺点的问题
-                        stop 'res error!'
-                    endif
+                    read(orgline,*,err=90)res.pval.index,res.pval.dat
+                    !if(icoor/=res.pval.index)then
+                    !    !处理缺点的问题
+                    !
+                    !    stop 'res error!'
+                    !endif
                     res.pval.next=>null()
                     if(associated(res.vallast))then
                         res.vallast.next=>res.pval
@@ -1883,17 +1884,20 @@
                     endif
                     if(icoor==ncoor)exit
                 enddo
-                allocate(res.val(icoor))
+90              if(icoor/=ncoor)then
+                    backspace(resunit)
+                endif
+                allocate(res.val(ncoor))
                 res.pval=>res.valhead
                 icoor=0
                 do while(associated(res.pval))
                     icoor=icoor+1
-                    res.val(icoor)=res.pval
+                    res.val(res%pval%index)=res.pval
                     res.pval=>res.pval.next
                 enddo
 
                 if(lowcase(res.resname) .eq. 'stress')then
-                    
+
                     nwcoor = ncoor
                     tcoor = ncoor
 
@@ -2036,9 +2040,9 @@
     type(eleminfopointer),allocatable::felem(:)
 
     real(8)::ctime
-    integer::icoor,ielem,inode,irel,pidx,igaus,dir,ires,nodeidx
-    integer::relate(2)
-    real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3),rot(3,3),stres(3,3),dist(2)
+    integer::icoor,ielem,inode,irel,pidx,igaus,dir,ires,nodeidx,ibeam
+    integer::relate(2),is
+    real(8)::relval(6,2),pval(6),relcod(3,2),elcod(3),nqm(6),vec(3),rot(3,3),stres(3,3),dist(2),fcenter(3),normal(3)
     real(8)::disti,distj,distl
 
     type(resvalinfo),dimension(:),pointer::fresvalue,bresvalue
@@ -2086,14 +2090,16 @@
                 enddo
             endif
         enddo
-        
-        do ires = 1, nbres
-            if(abs(beamres(ires)%dummy%timeana-ctime)<small)then
-                pbres => beamres(ires)%dummy
-            endif
-        enddo
+
+
 
     endselect
+
+    do ires = 1, nbres
+        if(abs(beamres(ires)%dummy%timeana-ctime)<small)then
+            pbres => beamres(ires)%dummy
+        endif
+    enddo
 
     pface%res => fresvalue
 
@@ -2117,7 +2123,7 @@
                     vec(3) = vec(3) + pelem%gpcod(2,igaus)
                     nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(2)*vec(3)
                     nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(2)*vec(1)
-                    nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(5)*norm2(vec)
+                    nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(6)*norm2(vec)
                 enddo
             enddo
         endif
@@ -2177,20 +2183,20 @@
 
         enddo
     end select
-    
+
     if(nbeam>0)then
         fcenter = pface%cpoint
         normal = pface%normal
         do ibeam = 1, nbeam
             ielem = pbres%val(ibeam)%index
             relate = elem(ielem)%node
-            
+
             do irel = 1, 2
                 pidx = relate(irel)
-                relval(:,irel) = pbres%val(ibeam)%val(1+(irel-1)*6:irel*6)
+                relval(:,irel) = pbres%val(ibeam)%dat(1+(irel-1)*6:irel*6)
                 relcod(:,irel) = coor(pidx)%val
             enddo
-            
+
             is = intersection(relcod(:,2)-relcod(:,1),relcod(:,1),normal,fcenter,elcod)
 
             if(is==1)then
@@ -2198,18 +2204,32 @@
                 distj = norm2(elcod - relcod(:,2))
                 distl = norm2(relcod(:,2) - relcod(:,1))
                 rot = direct_beam(relcod(:,2) - relcod(:,1))
-                
+
                 pval = disti/distl*relval(:,1) + distj/distl*relval(:,2)
-                
+
                 !转换成整体坐标
                 pval(1:3) = solve(rot,pval(1:3))
                 pval(4:6) = solve(rot,pval(4:6))
-                
+
+                !rot = pface%rot
+                !pval(1:3) = matmul(rot,pval(1:3))
+                !pval(4:6) = matmul(rot,pval(4:6))
+
+                vec = elcod - fcenter
+
+                nqm(1) = nqm(1) + pval(2)
+                nqm(2) = nqm(2) + pval(1)
+                nqm(3) = nqm(3) + pval(3)
+
+                nqm(4) = nqm(4) + pval(2)*vec(3) + pval(5)
+                nqm(5) = nqm(5) + pval(2)*vec(1) + pval(6)
+                nqm(6) = nqm(6) + pval(4)
+
             endif
-            
+
         enddo
     endif
-    
+
     pface%nqm = nqm
 
     nwcoor = nwcoor + pface%nnode

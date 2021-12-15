@@ -100,7 +100,7 @@
 
     if(abs(abs(normal(axis))-1.0)<0.001)then
         !如果是面方向与轴向相同，则绕x轴旋转
-        theta_plane = atan2(normal(zdir),normal(ydir))
+        theta_plane = atan2(normal(xdir),normal(ydir))
         theta_plane = -theta_plane
 
         rot_by_direct(xdir,xdir) = 1.
@@ -193,14 +193,47 @@
 
     end function rot_plane
 
+    function direct_p4(vec)    !20200210
+    integer:: matno,point_direct(2)
+    real   (8)::xx, r(3,3),direct_p4(3,3),vec(3)
+
+    r(3,:)=vec
+
+
+    xx=vec(1)**2+vec(3)**2
+    !!X,Y,Z ---global axis, x,y,z--local axis
+    !!z is the normal direction of the surface
+    !!    if z/=Y, x=Y*z, y=z*x
+    !!    if z=y,  x=X*z, y=z*x
+    if  (xx.gt..001) then
+        r(1,1)=r(3,3)
+        r(1,2)=0.
+        r(1,3)=-r(3,1)
+    else
+        r(1,1)=0.
+        r(1,2)=-vec(3)
+        r(1,3)=vec(2)
+    endif
+    vec=r(1,:)**2
+    xx=sqrt(sum(vec))
+    r(1,:)=r(1,:)/xx
+    r(2,1)=r(3,2)*r(1,3)-r(3,3)*r(1,2)
+    r(2,2)=r(3,3)*r(1,1)-r(3,1)*r(1,3)
+    r(2,3)=r(3,1)*r(1,2)-r(3,2)*r(1,1)
+    vec=r(2,:)**2
+    xx=sqrt(sum(vec))
+    r(2,:)=r(2,:)/xx
+    direct_p4 = r
+    end function direct_p4
+
     function direct_beam(vec)
-    implicit none 
+    implicit none
     real(8)::vec(3),r(3,3),xx,direct_beam(3,3)
-    
+
     r(1,:) = vec
-    
+
     xx = vec(1)**2 + vec(3)**2
-    
+
     if(xx.gt. .001)then
         r(3,1) = -vec(3)
         r(3,2) = 0.
@@ -210,23 +243,23 @@
         r(3,2) = -vec(1)
         r(3,3) = 0.
     endif
-    
+
     xx = norm2(r(3,:))
-    
+
     r(3,:)=r(3,:)/xx
     r(2,1)=r(3,2)*r(1,3)-r(3,3)*r(1,2)
     r(2,2)=r(3,3)*r(1,1)-r(3,1)*r(1,3)
     r(2,3)=r(3,1)*r(1,2)-r(3,2)*r(1,1)
-    
+
     xx=norm2(r(2,:))
-    
+
     r(2,:)=r(2,:)/xx
-    
+
     direct_beam = r
-    
+
     endfunction direct_beam
-    
-    
+
+
     function RotMatrix(r,axis)
     real(8) r(3)
     real(8) RotMatrix(3,3)

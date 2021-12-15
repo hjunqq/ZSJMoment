@@ -1,17 +1,18 @@
-ncut,originmesh,cutmesh,nbem
-2     .False.    .True.  19
+ncut,originmesh,cutmesh,nbem,noutstep
+1     .False.    .True.  0     100
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
 1                 2           2          0.09817477042468103870195760572748 0
 0
 1 1 10*0
 0.0,0.0,0.0 0.0,19.2,0.0
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
-1                2            3            1.6           3
-1 2 3
+1                2            1            1.6           0
+0
 1 1 1 1 0 0 0 0 0 0 0 0 
 0.0,0.0,0.0 0.0,19.2,0.0
-cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval
-1                2            1            1.6
+cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
+1                2            3            1.6           3
+1 2 3
 1 1 1 1 0 0 0 0 0 0 0 0 
 0.0,0.0,0.0 0.0,19.2,0.0
 

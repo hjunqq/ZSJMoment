@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.31911.196
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6989167D-11E4-40FE-8C1A-2192A86A7E90}") = "ZSJMoment", "ZSJMoment\ZSJMoment.vfproj", "{6FC7B058-2AEE-4775-B905-39E45C8BF874}"
 EndProject
+Project("{6989167D-11E4-40FE-8C1A-2192A86A7E90}") = "TestRot", "TestRot\TestRot.vfproj", "{4821CC5A-0FEC-427C-86C0-393BD817CF01}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{6FC7B058-2AEE-4775-B905-39E45C8BF874}.Release|x64.Build.0 = Release|x64
 		{6FC7B058-2AEE-4775-B905-39E45C8BF874}.Release|x86.ActiveCfg = Release|Win32
 		{6FC7B058-2AEE-4775-B905-39E45C8BF874}.Release|x86.Build.0 = Release|Win32
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Debug|x64.ActiveCfg = Debug|x64
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Debug|x64.Build.0 = Debug|x64
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Debug|x86.ActiveCfg = Debug|Win32
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Debug|x86.Build.0 = Debug|Win32
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Release|x64.ActiveCfg = Release|x64
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Release|x64.Build.0 = Release|x64
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Release|x86.ActiveCfg = Release|Win32
+		{4821CC5A-0FEC-427C-86C0-393BD817CF01}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

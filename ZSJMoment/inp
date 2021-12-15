@@ -1,12 +1,4 @@
 fpath
-40duanjingli_sub\1
-pcenter
-0.0,134.4,52.366
-angular
--0.001
-type
-ascii
-fpath
 2duanjingli_sub\1
 pcenter
 0.0,0.0,0.0,
@@ -18,6 +10,14 @@ ascii
 
 
 
+fpath
+40duanjingli_sub\1
+pcenter
+0.0,134.4,52.366
+angular
+-0.001
+type
+ascii
 
 
 

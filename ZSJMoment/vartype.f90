@@ -24,7 +24,7 @@
 		integer         ::index, group, ifcross,dir, enodes
 		integer,allocatable::node(:), cross(:)
 		real(8),allocatable::djacb(:),cartd(:,:,:),gpcod(:,:)
-        real(8)::normal(3),rot(3,3)
+		real(8)::normal(3),rot(3,3)
 		type(eleminfo),pointer::next
 	end type
 	type eleminfopointer
@@ -80,13 +80,13 @@
 		real(8)::cpoint(3),nqm(6),normal(3),theta,lcenter(2),rot(3,3)
 		type(coorinfopointer),allocatable::coor(:)
 		type(eleminfopointer),allocatable::elem(:)
-        type(resvalinfo),dimension(:),pointer::res
+		type(resvalinfo),dimension(:),pointer::res
 		type(faceinfo),pointer::next
-    end type faceinfo
-    
-    type faceinfopointer
-        type(faceinfo),pointer::dummy
-    endtype
+	end type faceinfo
+	
+	type faceinfopointer
+		type(faceinfo),pointer::dummy
+	endtype
 
 	!>切面信息
 	!!@param cuttype 切面类型： 1 - 按照间隔切面 2 - 按照单元切面 3- 按照间隔查找最接近的单元面
@@ -98,7 +98,7 @@
 		integer,allocatable::appeargroup(:)
 		integer,allocatable::group(:)
 		!type(faceinfo),allocatable::face(:)
-        type(faceinfopointer),allocatable::face(:)
+		type(faceinfopointer),allocatable::face(:)
 	end type cutinfo
 	
 
@@ -117,17 +117,17 @@
 		character(70)   ::resname,ananame,restype
 		character(70),allocatable::compname(:)
 		character(70)   ::loaddesc
-        integer			::surf
+		integer			::surf
 		integer         ::index,nval,loadtype,datatype,dataloc,desccomp,gausspoint
 		real(8)            ::timeana
 		type(resvalinfo),dimension(:),pointer::val
 		type(resvalinfo),pointer::valhead,pval,vallast
 		type(resinfo),pointer::next
-    end type
-    
-    type resinfopointer
+	end type
+	
+	type resinfopointer
 		type(resinfo),pointer::dummy
-    end type
+	end type
 
 
 	type meshgroupinfo
@@ -138,6 +138,7 @@
 
 	integer::mshunit,resunit,inpunit,cutunit,chkunit,ftrunit,ftfunit,bemunit
 	integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone,ncut,nwcoor,nwelem,nforce,nfres,nbres,nbeam
+	integer::noutstep
 	logical::ismeshgroup,isoldformat,isoriginmesh,iscutmesh
 	character(len=128)::arg
 	integer::narg,iarg
@@ -161,8 +162,8 @@
 	type(cutinfo),pointer::cuthead,pcut,cutlast
 	type(cutinfo),allocatable::cut(:)
 	type(faceinfo),pointer::facehead,pface,facelast
-    type(faceinfo),dimension(:),pointer::surf
-    type(resinfopointer),dimension(:),pointer::surfres,beamres
+	type(faceinfo),dimension(:),pointer::surf
+	type(resinfopointer),dimension(:),pointer::surfres,beamres
 	type(faceinfo),allocatable::face(:)
 	
 	type(eleminfo),pointer::piselem
@@ -178,6 +179,6 @@
 
 	real,parameter:: pi=3.1415927
 	real,parameter:: small=0.00000001
-    real,parameter:: bigsmall=0.0001
+	real,parameter:: bigsmall=0.0001
 
 	end module

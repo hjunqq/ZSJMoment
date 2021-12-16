@@ -192,11 +192,14 @@
     rot_plane(zdir,zdir) = 1.
 
     end function rot_plane
+    
 
-    function direct_p4(vec)    !20200210
+
+    function direct_p4(v)    !20200210
     integer:: matno,point_direct(2)
-    real   (8)::xx, r(3,3),direct_p4(3,3),vec(3)
+    real   (8)::xx, r(3,3),direct_p4(3,3),vec(3),v(3)
 
+    vec = v
     r(3,:)=vec
 
 

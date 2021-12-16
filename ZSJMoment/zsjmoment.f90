@@ -752,6 +752,7 @@
             piselem => piselem%next
         enddo
 
+        call filterfacenormal(pface)
         call getcentroid(pface)
 
         if(associated(facelast))then
@@ -1215,7 +1216,7 @@
     integer :: xdir, ydir
 
     integer :: ordered(20), nodetag(20), enodemap(20), is
-    real(8) :: p1(3), p2(3), p3(3), v(3), theta(20), elcod(3, 8), normal(3), rot(3, 3), center(3), projp1(3), p(3, 8), direct(3), ejacob
+    real(8) :: p1(3), p2(3), p3(3), v(3), theta(20), elcod(3, 8), normal(3), rot(3, 3), center(3), projp1(3), p(3, 8), direct(3), ejacob, fnormal(3)
 
     !fcoor=>pface%coor
     !felem=>pface%elem
@@ -1223,8 +1224,11 @@
     !ncelem = ubound(felem,1)
     !nccoor = ubound(fcoor,1)
 
+    fnormal = 0.
+
     ielem = 0
     pelem => elemhead
+    pielem => elemhead
     do while(associated(pelem))
         !pelem => felem(ielem)%dummy
         nenode = ubound(pelem%node, 1)
@@ -1265,7 +1269,7 @@
         direct = center
 
         !rot = rot_by_direct(direct, normal, pelem%dir)
-        
+
         rot = direct_p4(normal)
 
         if(pelem%dir==2)then
@@ -1306,7 +1310,18 @@
         select case(knode)
         case(2)
             !删除单元
-            
+            if(associated(pelem,elemhead))then
+                elemhead => pelem%next
+                deallocate(pelem)
+                pelem => elemhead
+                cycle
+
+            else
+                pielem%next => pelem%next
+                deallocate(pelem)
+                pelem => pielem%next
+                cycle
+            endif
         case(3)
             !三角形，直接变成四边形
             knode = knode + 1
@@ -1350,6 +1365,7 @@
         normal = normal_plane(p(:, 1), p(:, 2), p(:, 3))
 
         pelem%normal = normal
+
         rot = direct_p4(normal)
         pelem%rot = rot
         !pelem%rot = rot_by_direct(direct, normal, pelem%dir)
@@ -1382,12 +1398,19 @@
             enddo
         enddo
 
-        if(abs(ejacob)<small .and.knode/=2)then
+        if(abs(ejacob)<small .or. ejacob/=sum(abs(pelem%djacb)))then
             pelem%node = pelem%node((/2, 3, 4, 1/))
         else
+            fnormal = fnormal + pelem%normal
+            pielem => pelem
             pelem => pelem%next
         endif
     enddo
+
+    
+
+
+
 100 format(I10, 10F10.7)
 101 format(10F10.7)
 102 format(4(3F10.7, /))
@@ -1409,7 +1432,62 @@
         picoor => picoor%next
     enddo
     end function getcoor
+    subroutine filterfacenormal(pface)
+    implicit none
+    type(faceinfo), pointer :: pface
+    type(eleminfo), pointer :: pelem
 
+    type(coorinfopointer), allocatable :: fcoor(:)
+    type(eleminfopointer), allocatable :: felem(:)
+    
+    real(8):: fnormal(3),normal(3),elcod(3,4),ejacob
+    integer::ielem,inode,igaus,idim,inodeidx
+    type(coorinfo), pointer :: picoor
+    
+    !按照面重排
+    !if(norm2(fnormal)>0.899)then
+    !    fnormal = fnormal / norm2(fnormal)
+    !else
+    !    fnormal = elemhead%normal
+    !endif
+    
+    fcoor = pface%coor
+    felem = pface%elem
+    
+    if(pface%cuttype==1)then
+        fnormal = 0.
+        fnormal(pface%dir)=1.0
+    else
+        fnormal = (/cos(pface%theta+pi/2.),0.d0,sin(pface%theta+pi/2.)/)
+    endif
+
+
+    do ielem=1,pface%nelem
+        pelem=>pface%elem(ielem)%dummy
+        normal = pelem%normal
+        if(dot_product(normal,fnormal)<0)then
+            pelem%normal = -pelem%normal
+            pelem%node = pelem%node((/4,3,2,1/))
+            pelem%rot = direct_p4(pelem%normal)
+            do inode = 1, pelem%enodes
+                inodeidx = pelem%node(inode)
+                picoor => pface%coor(inodeidx)%dummy
+                elcod(:, inode) = picoor%val
+            enddo
+            elcod = matmul(pelem%rot, elcod)
+            ejacob = 0
+            do igaus = 1, elemlibs(1)%ngaus
+                call jacob(elcod, elemlibs(1)%deriv(:, :, igaus), pelem%cartd(:, :, igaus), pelem%djacb(igaus))
+                ejacob = ejacob + pelem%djacb(igaus)
+                do idim = 1, elemlibs(1)%ndim
+                    pelem%gpcod(idim, igaus) = dot_product(elcod(idim, 1:4), elemlibs(1)%shapefun(:, igaus))
+                enddo
+            enddo
+        endif
+
+    enddo
+    
+    end subroutine
     subroutine getcentroid(pface)
     implicit none
     type(faceinfo), pointer :: pface
@@ -1418,10 +1496,10 @@
     type(coorinfopointer), allocatable :: fcoor(:)
     type(eleminfopointer), allocatable :: felem(:)
 
-    integer :: ielem, jelem, telem, igaus, jgaus, tgaus, xdir, ydir
+    integer :: ielem, jelem, telem, igaus, jgaus, tgaus, xdir, ydir, inodeidx
 
     real(8), allocatable :: shapefun(:), center(:)
-    real(8) :: djacb, area, tarea, normal(3), theta, rot(3, 3), fcenter(3), gcenter(3), direct(3)
+    real(8) :: djacb, area, tarea, normal(3), theta, rot(3, 3), fcenter(3), gcenter(3), direct(3),gpcod(2),ecenter(2)
 
     fcoor = pface%coor
     felem = pface%elem
@@ -1439,15 +1517,22 @@
 
         pelem => felem(ielem)%dummy
 
+        !write(chkunit,"(I,10F10.7)")ielem,pelem%normal,pelem%djacb
+
         area = 0.0
+        ecenter = 0.0
         do igaus = 1, 4
-            center = pelem%djacb(igaus) * pelem%gpcod(:, igaus)
-            fcenter(1:2) = center
-            fcenter(3) = 0
-            rot = pelem%rot
-            gcenter = gcenter + solve(rot, fcenter)
+            inodeidx = pelem%node(igaus)
+            pcoor => pface%coor(inodeidx)%dummy
+            ecenter = ecenter + pelem%djacb(igaus) * pelem%gpcod(:, igaus)
+            gcenter = gcenter + pelem%djacb(igaus) * pcoor%val
+
             area = area + pelem%djacb(igaus)
         enddo
+
+
+        center = center + ecenter
+
         tarea = tarea + area
         normal = normal + pelem%normal
     enddo
@@ -1473,7 +1558,7 @@
     !fcenter(1:2) = center
     !gcenter = solve(rot,fcenter)
     !write(chkunit,*)"--------gcenter---------"
-    gcenter(pface%dir) = pface%cpoint(pface%dir)
+    !gcenter(pface%dir) = pface%cpoint(pface%dir)
     pface%cpoint = gcenter
     pface%normal = normal
     !write(chkunit,"(3F20.7)")pface%cpoint
@@ -1870,7 +1955,7 @@
                 if(lowcase(res.resname) .eq. 'stress')then
 
                     ioutstep = ioutstep + 1
-                    
+
                     nwcoor = ncoor
                     tcoor = ncoor
 
@@ -2033,7 +2118,7 @@
     case(1:2)
         ! interpolate
         do icoor = 1, pface%nnode
-            
+
             pcoor = fcoor(icoor)%dummy
             relate = pcoor%relate
             do irel = 1, 2
@@ -2089,14 +2174,14 @@
                 rot = pelem%rot
                 !rot = direct_p4(pface%normal)
                 vec = matmul(rot,pface%cpoint)!转换到局部坐标
-                write(chkunit,"('CP:',2I,6E15.7)")pface%index,ielem,vec,pface%cpoint
+                !write(chkunit,"('CP:',2I,6E15.7)")pface%index,ielem,vec,pface%cpoint
                 do igaus = 1, 4
                     pidx = pelem%node(igaus)
                     pval = fresvalue(pidx)%dat
                     nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(2)
                     nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(4)
                     nqm(3) = nqm(3) + pelem%djacb(igaus)*pval(6)
-                    dist = pelem%gpcod(1, igaus) - vec(1:2) 
+                    dist = pelem%gpcod(1, igaus) - pface%lcenter
                     nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(2)*dist(2)
                     nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(2)*dist(1)
                     nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(6)*norm2(dist)
@@ -2110,22 +2195,22 @@
             do igaus = 1, 4
                 pidx = pelem%node(igaus)
                 pval = fresvalue(pidx)%dat
-                !stres(1, 1) = pval(1)
-                !stres(2, 2) = pval(2)
-                !stres(3, 3) = pval(3)
-                !stres(1, 2) = pval(4)
-                !stres(2, 1) = pval(4)
-                !stres(2, 3) = pval(5)
-                !stres(3, 2) = pval(5)
-                !stres(1, 3) = pval(6)
-                !stres(3, 1) = pval(6)
-                !stres = matmul(rot, matmul(stres, rot))
-                !pval(1) = stres(1, 1)    !xx
-                !pval(2) = stres(2, 2)    !yy
-                !pval(3) = stres(3, 3)    !zz
-                !pval(4) = stres(1, 2)    !xy
-                !pval(5) = stres(2, 3)    !yz
-                !pval(6) = stres(3, 1)    !xz
+                stres(1, 1) = pval(1)
+                stres(2, 2) = pval(2)
+                stres(3, 3) = pval(3)
+                stres(1, 2) = pval(4)
+                stres(2, 1) = pval(4)
+                stres(2, 3) = pval(5)
+                stres(3, 2) = pval(5)
+                stres(1, 3) = pval(6)
+                stres(3, 1) = pval(6)
+                stres = matmul(rot, matmul(stres, rot))
+                pval(1) = stres(1, 1)    !xx
+                pval(2) = stres(2, 2)    !yy
+                pval(3) = stres(3, 3)    !zz
+                pval(4) = stres(1, 2)    !xy
+                pval(5) = stres(2, 3)    !yz
+                pval(6) = stres(3, 1)    !xz
 
                 nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(3)  !Nxx
                 nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(6)  !Sxy

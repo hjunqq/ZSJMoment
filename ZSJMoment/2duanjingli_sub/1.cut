@@ -1,7 +1,7 @@
 ncut,originmesh,cutmesh,nbem,noutstep
 1     .False.    .True.  0     100
 cut(i)%index,cut(i)%dir,cut(i)%cuttype,cut(i)%interval,cut(i)%nsurf
-1                 2           2          0.09817477042468103870195760572748 0
+1                 2           2          1.57 0
 0
 1 1 10*0
 0.0,0.0,0.0 0.0,19.2,0.0

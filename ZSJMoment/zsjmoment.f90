@@ -1693,6 +1693,13 @@
             enddo
 
         endif
+        
+        !if(lowcase(trim(pgroup.elemtype))=='linear')then
+        !    do ielem = 1, pgroup.nelem
+        !        call gid_fwriteelement(fdm, pgroup.elem(ielem).index, pgroup.elem(ielem).node)
+        !    enddo
+        !endif
+        
         call gid_fendelements(fdm)
 
         call gid_fendmesh(fdm)
@@ -2099,11 +2106,11 @@
                     enddo
 
                     call gid_fendresult(fdr)
-                    
+
                     if(mod(ioutstep,10)==0)then
                         call gid_fflushpostfile(fdr)
                     endif
-                    
+
                     if(ioutstep>=noutstep)goto 99
                 endif
 

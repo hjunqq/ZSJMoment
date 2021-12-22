@@ -1,4 +1,14 @@
 fpath
+40secondsub150\1
+pcenter
+199.996  384.003  46.916 
+angular
+-0.001
+type
+binary
+
+
+fpath
 40duanjingli_sub\1
 pcenter
 0.0,134.4,52.366
@@ -9,14 +19,7 @@ binary
 
 
 
-fpath
-40secondsub150\1
-pcenter
-199.996  384.003  46.916 
-angular
--0.001
-type
-ascii
+
 
 
 

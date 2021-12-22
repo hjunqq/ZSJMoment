@@ -2099,7 +2099,11 @@
                     enddo
 
                     call gid_fendresult(fdr)
-
+                    
+                    if(mod(ioutstep,10)==0)then
+                        call gid_fflushpostfile(fdr)
+                    endif
+                    
                     if(ioutstep>=noutstep)goto 99
                 endif
 
@@ -2214,15 +2218,15 @@
                 dir = pelem%dir
                 rot = pelem%rot
                 !rot = direct_p4(pface%normal)
-                vec = matmul(rot,pface%cpoint)!转换到局部坐标
-                write(chkunit,"('CP:',2I,6E15.7)")pface%index,ielem,pface%cpoint,pface%lcenter
+                !vec = matmul(rot,pface%cpoint)!转换到局部坐标
+                write(chkunit,"('CP:',2I,8F15.7)")pface%index,ielem,pface%cpoint,pface%lcenter,pelem%gpcod(:, 1)
                 do igaus = 1, 4
                     pidx = pelem%node(igaus)
                     pval = fresvalue(pidx)%dat
                     nqm(1) = nqm(1) + pelem%djacb(igaus)*pval(2)
                     nqm(2) = nqm(2) + pelem%djacb(igaus)*pval(4)
                     nqm(3) = nqm(3) + pelem%djacb(igaus)*pval(6)
-                    dist = pelem%gpcod(1, igaus) - pface%lcenter
+                    dist = pelem%gpcod(:, igaus) - pface%lcenter
                     nqm(4) = nqm(4) + pelem%djacb(igaus)*pval(2)*dist(2)
                     nqm(5) = nqm(5) + pelem%djacb(igaus)*pval(2)*dist(1)
                     nqm(6) = nqm(6) + pelem%djacb(igaus)*pval(6)*norm2(dist)
